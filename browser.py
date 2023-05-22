@@ -3,9 +3,14 @@ import socket
 import ssl
 import base64
 import codecs
+import time
 import zlib
 
+from address import Address
+from cache import Cache
 from header import Header
+
+url_cache = Cache()
 
 
 def request(url: str, header_list: list[Header] = None) -> (str, str):
@@ -96,6 +101,31 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
             body = zlib.decompressobj(32).decompress(body)
         body = body.decode('utf8')
         s.close()
+        # Add Caching support
+        if 'cache-control' in headers:
+            # check if max-age is present
+            max_age_present = False
+            possible_position = headers['cache-control'].find('max-age=')
+            total_substring = total_substring = 'max-age=0'
+            if possible_position != -1 and headers['cache-control'][possible_position + 9].isdigit():
+                total_substring = 'max-age='
+                rest_of_header = headers['cache-control'][possible_position + 8:]
+                for char in rest_of_header:
+                    if char.isdigit():
+                        total_substring += char
+                    else:
+                        break
+                max_age_present = True
+            # check if no-store is present
+            no_store_present = 'no-store' in headers['cache-control']
+            if max_age_present and not no_store_present:
+                max_age = total_substring.replace('max-age=', '')
+                age = 0
+                if 'age' in headers:
+                    age = headers['age']
+                expiration_time = int(time.time()) + int(max_age) - int(age)
+                address = Address(url, expiration_time, headers, body)
+                url_cache.add_address(address)
         return headers, body
 
     def parse_file(path):
@@ -177,6 +207,14 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
     match scheme:
         case "http" | "https":
             url = url[2:]
+            # Return from cache if the address is not past its expiration date
+            cached_address = url_cache.get_address(url)
+            if cached_address:
+                if url_cache.is_address_expired(cached_address):
+                    return cached_address.headers, cached_address.body
+                else:
+                    url_cache.delete_address(url)
+            # If not in cache, proceed normally
             return parse_url(url)
         case "file":
             url = url[2:]
@@ -191,7 +229,6 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
 
 
 def show(body: str):
-    # print(body)
     content = ""
     in_angle = False
     in_body = False
@@ -243,6 +280,8 @@ if __name__ == "__main__":
 
     try:
         if sys.argv is not None:
-            load(sys.argv[1])
+            i = 1
+            while i < 1000:
+                load(sys.argv[1])
     except IndexError:
         load()
