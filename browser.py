@@ -8,9 +8,9 @@ from header import Header
 
 
 def request(url: str, header_list: list[Header] = None) -> (str, str):
-    def parse_url():
+    def parse_url(address):
         # separate the host from the path
-        host, path = url.split("/", 1)
+        host, path = address.split("/", 1)
         path = "/" + path
         # support custom ports
         if ":" in host:
@@ -122,19 +122,36 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
                 print("The MIME type entered in the URL is not supported.")
         return "", decoded_data
 
+    def transform_source(body):
+        new_body = "<body>"
+        for c in body:
+            if c == "<":
+                new_body += '&lt;'
+            elif c == ">":
+                new_body += '&gt;'
+            else:
+                new_body += c
+        new_body += "</body>"
+        return new_body
+
     # strip off the http or https portion
     scheme, url = url.split(":", 1)
-    assert scheme in ["http", "https", "file", "data"], \
+    assert scheme in ["http", "https", "file", "data", "view-source"], \
         "Unknown scheme {}".format(scheme)
     match scheme:
         case "http" | "https":
             url = url[2:]
-            return parse_url()
+            return parse_url(url)
         case "file":
             url = url[2:]
             return parse_file(url)
         case "data":
             return parse_data()
+        case "view-source":
+            inner_scheme, inner_url = url.split(":", 1)
+            scheme = inner_scheme
+            url_headers, url_body = parse_url(inner_url[2:])
+            return url_headers, transform_source(url_body)
 
 
 def show(body: str):
@@ -156,9 +173,9 @@ def show(body: str):
             in_angle = False
         elif (not in_angle) and in_body:
             content += c
-            if last_seven_chars[-4:] == '&lt;':
+            if content[-4:] == '&lt;':
                 content = content[:-4] + '<'
-            elif last_seven_chars[-4:] == '&gt;':
+            elif content[-4:] == '&gt;':
                 content = content[:-4] + '>'
     print(content)
 
