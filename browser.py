@@ -49,7 +49,16 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
         # split response into pieces
         statusline = response.readline()
         version, status, explanation = statusline.split(b" ", 2)
-        assert status.decode('utf-8') == "200", "{}: {}".format(status, explanation)
+        is_redirect = False
+        try:
+            assert status.decode('utf-8') == "200", "{}: {}".format(status, explanation)
+        except AssertionError:
+            decoded_status = int(status.decode('utf-8'))
+            if decoded_status >= 300 or decoded_status < 400:
+                is_redirect = True
+            else:
+                raise AssertionError
+        # find all the headers
         headers = {}
         while True:
             line = response.readline()
@@ -59,6 +68,15 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
             header = header.decode("utf8")
             value = value.decode("utf8")
             headers[header.lower()] = value.strip()
+        # check if it is a redirect
+        if is_redirect:
+            new_url = headers['location']
+            s.close()
+            if new_url.startswith('/'):
+                new_url = host + new_url
+                return parse_url(new_url)
+            else:
+                return request(new_url)
         # check for transfer encoding
         if 'transfer-encoding' in headers and headers['transfer-encoding'] == 'chunked':
             chunks = []
