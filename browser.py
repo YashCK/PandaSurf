@@ -138,14 +138,29 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
 
 
 def show(body: str):
+    content = ""
     in_angle = False
+    in_body = False
+    last_seven_chars = "       "
     for c in body:
+        last_seven_chars = (last_seven_chars + c)[-7:]
+        # check if inside the body tags to ignore style
+        if last_seven_chars[-6:] == "<body>":
+            in_body = True
+        elif last_seven_chars == "</body>":
+            in_body = False
+        # check if an angle brackets
         if c == "<":
             in_angle = True
         elif c == ">":
             in_angle = False
-        elif not in_angle:
-            print(c, end="")
+        elif (not in_angle) and in_body:
+            content += c
+            if last_seven_chars[-4:] == '&lt;':
+                content = content[:-4] + '<'
+            elif last_seven_chars[-4:] == '&gt;':
+                content = content[:-4] + '>'
+    print(content)
 
 
 def load(url: str = None):
