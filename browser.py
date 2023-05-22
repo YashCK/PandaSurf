@@ -3,6 +3,7 @@ import socket
 import ssl
 import base64
 import codecs
+import zlib
 
 from header import Header
 
@@ -44,21 +45,38 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
         request_bytes += connection_header
         s.send(request_bytes)
         # read response
-        response = s.makefile("r", encoding="utf8", newline="\r\n")
+        response = s.makefile("rb", newline="\r\n")
         # split response into pieces
         statusline = response.readline()
-        version, status, explanation = statusline.split(" ", 2)
-        assert status == "200", "{}: {}".format(status, explanation)
+        version, status, explanation = statusline.split(b" ", 2)
+        assert status.decode('utf-8') == "200", "{}: {}".format(status, explanation)
         headers = {}
         while True:
             line = response.readline()
-            if line == "\r\n":
+            if line == b"\r\n":
                 break
-            header, value = line.split(":", 1)
+            header, value = line.split(b":", 1)
+            header = header.decode("utf8")
+            value = value.decode("utf8")
             headers[header.lower()] = value.strip()
-        assert "transfer-encoding" not in headers
-        assert "content-encoding" not in headers
-        body = response.read()
+        # check for transfer encoding
+        if 'transfer-encoding' in headers and headers['transfer-encoding'] == 'chunked':
+            chunks = []
+            chunk_length = 10
+            while chunk_length > 0:
+                line = response.readline().decode('utf8')
+                line.replace('\r\n', '')
+                chunk_length = int(line, 16)
+                chunk = response.read(chunk_length)
+                chunks.append(chunk)
+                response.readline()
+            body = b''.join(chunks)
+        else:
+            body = response.read()
+        # check for content encoding - decompress and then decode
+        if 'content-encoding' in headers and headers['content-encoding'] == 'gzip':
+            body = zlib.decompressobj(32).decompress(body)
+        body = body.decode('utf8')
         s.close()
         return headers, body
 
@@ -155,6 +173,7 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
 
 
 def show(body: str):
+    # print(body)
     content = ""
     in_angle = False
     in_body = False
@@ -162,9 +181,9 @@ def show(body: str):
     for c in body:
         last_seven_chars = (last_seven_chars + c)[-7:]
         # check if inside the body tags to ignore style
-        if last_seven_chars[-6:] == "<body>":
+        if last_seven_chars[-5:] == "<body":
             in_body = True
-        elif last_seven_chars == "</body>":
+        elif last_seven_chars[-5:] == "/body>":
             in_body = False
         # check if an angle brackets
         if c == "<":
@@ -184,7 +203,9 @@ def load(url: str = None):
     try:
         if url is None:
             url = "file://" + os.getcwd() + '/panda_surf_df.txt'
-        header_list = [Header("User-Agent", "This is the PandaSurf Browser.")]
+        user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
+        accept_encoding_header = Header("Accept-Encoding", "gzip")
+        header_list = [user_agent_header, accept_encoding_header]
         headers, body = request(url, header_list)
         show(body)
     except FileNotFoundError:
