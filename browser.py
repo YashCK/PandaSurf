@@ -1,6 +1,8 @@
 import os
 import socket
 import ssl
+import base64
+import codecs
 
 from header import Header
 
@@ -58,26 +60,81 @@ def request(url: str, header_list: list[Header] = None) -> (str, str):
         assert "content-encoding" not in headers
         body = response.read()
         s.close()
-        print("hiiiii")
-        print("headers: ", headers)
-        print("body: ", body)
         return headers, body
 
     def parse_file(path):
         with open(path, 'r') as file:
             # Read the contents of the file
             file_contents = file.read()
-        return "abcd", file_contents
+        return "", file_contents
+
+    def parse_data():
+        # extract MIME type, Optional Parameters, and Content
+        split_parts = url.split(',')
+        non_content = split_parts[0].split(':')[0].split(';')
+        mime_type = non_content[0]
+        optional_parameters = []
+        if len(non_content) > 1:
+            optional_parameters = non_content[1:]
+        content = split_parts[1]
+
+        # helper functions
+        def find_encoding(default_encoding):
+            encoding = default_encoding
+            for param in optional_parameters:
+                if param.startswith("charset="):
+                    encoding = param.split('=')[1]
+                    break
+            return encoding
+
+        def find_base():
+            base = None
+            for param in optional_parameters:
+                if param.startswith("base"):
+                    return param
+            return base
+
+        # cases for all MIME types
+        decoded_data = content
+        # figure out encoding
+        # decode the data
+        # figure out how to represent the data based on the mime type
+        # handle the optional parameters
+        # error handling for unsupported types
+        match mime_type:
+            case 'text/plain':
+                baseX = find_base()
+                if not (baseX is None):
+                    if baseX == 'base64':
+                        decoded_bytes = base64.b64decode(content)
+                        decoded_data = codecs.decode(decoded_bytes, "utf-8")
+            case 'text/html':
+                baseX = find_base()
+                if not (baseX is None):
+                    if baseX == 'base64':
+                        decoded_bytes = base64.b64decode(content)
+                        decoded_data = codecs.decode(decoded_bytes, "utf-8")
+            case 'image/jpeg' | 'image/png':
+                decoded_data = base64.b64decode(content)
+            case 'application/pdf' | 'application/json' | 'audio/mpeg' | 'video/mp4':
+                print("The MIME type entered in the URL is not currently supported.")
+            case _:
+                print("The MIME type entered in the URL is not supported.")
+        return "", decoded_data
 
     # strip off the http or https portion
-    scheme, url = url.split("://", 1)
-    assert scheme in ["http", "https", "file"], \
+    scheme, url = url.split(":", 1)
+    assert scheme in ["http", "https", "file", "data"], \
         "Unknown scheme {}".format(scheme)
     match scheme:
         case "http" | "https":
+            url = url[2:]
             return parse_url()
         case "file":
+            url = url[2:]
             return parse_file(url)
+        case "data":
+            return parse_data()
 
 
 def show(body: str):
@@ -100,8 +157,8 @@ def load(url: str = None):
         show(body)
     except FileNotFoundError:
         print("The path to the file you entered does not exist.")
-    # except ValueError:
-    #     print("The path entered was likely not in the correct format.")
+    except ValueError:
+        print("The path entered was likely not in the correct format.")
 
 
 if __name__ == "__main__":
@@ -112,6 +169,7 @@ if __name__ == "__main__":
         default_file.write("This is the PandaSurf Default File.\n")
     # open the url or file path
     import sys
+
     try:
         if sys.argv is not None:
             load(sys.argv[1])
