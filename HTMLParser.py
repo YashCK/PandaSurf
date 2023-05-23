@@ -8,6 +8,11 @@ class HTMLParser:
         "link", "meta", "param", "source", "track", "wbr",
     ]
 
+    HEAD_TAGS = [
+        "base", "basefont", "bgsound", "noscript",
+        "link", "meta", "title", "style", "script",
+    ]
+
     def __init__(self, body):
         self.body = body
         self.unfinished = []
@@ -39,6 +44,7 @@ class HTMLParser:
         # ignore whitespace
         if text.isspace():
             return
+        self.implicit_tags()
         parent = self.unfinished[-1]
         node = Text(text, parent)
         parent.children.append(node)
@@ -48,6 +54,7 @@ class HTMLParser:
         # ignore doctype declarations and comments
         if tag.startswith("!"):
             return
+        self.implicit_tags(tag)
         # Important Tags
         if tag.startswith("/"):
             if len(self.unfinished) == 1:
@@ -97,3 +104,23 @@ class HTMLParser:
         print(" " * indent, node)
         for child in node.children:
             self.print_tree(child, indent + 2)
+
+    def implicit_tags(self, tag=None):
+        # compare the list of unfinished tags to figure out which ones have been omitted
+        # more than one tag can be omitted in each row -> loop
+        while True:
+            open_tags = [node.tag for node in self.unfinished]
+            # necessary when the first tag in the document is something other than <html>
+            if open_tags == [] and tag != "html":
+                self.add_tag("html")
+            elif open_tags == ["html"] and tag not in ["head", "body", "/html"]:
+                # head and body tags can be omitted
+                if tag in self.HEAD_TAGS:
+                    self.add_tag("head")
+                else:
+                    self.add_tag("body")
+            elif open_tags == ["html", "head"] and tag not in ["/head"] + self.HEAD_TAGS:
+                # the /head tag can also be implicit
+                self.add_tag("/head")
+            else:
+                break
