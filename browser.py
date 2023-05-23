@@ -2,6 +2,7 @@ import os
 import tkinter
 import tkinter.font
 
+from HTMLParser import HTMLParser
 from header import Header
 from layout import Layout
 from request import RequestHandler
@@ -9,22 +10,26 @@ from request import RequestHandler
 
 class Browser:
     def __init__(self):
-        # set attributes
+        # window attributes
         self.window = tkinter.Tk()
         self.width = 800
         self.height = 600
+        # spacing attributes
         self.hstep = 13
         self.vstep = 18
         self.scroll_step = 70
         self.scroll = 0
+        # canvas
         self.canvas = tkinter.Canvas(
             self.window,
             width=self.width,
             height=self.height
         )
+        # request handler
         self.rq = RequestHandler()
+        # content attributes
         self.display_list = []
-        self.current_content = ""
+        self.nodes = None
         # set up canvas
         self.canvas.pack(expand=True, fill=tkinter.BOTH)
         # bind keys
@@ -52,9 +57,8 @@ class Browser:
             accept_encoding_header = Header("Accept-Encoding", "gzip")
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
-            tokens = self.rq.lex(body)
-            self.current_content = tokens
-            self.display_list = Layout(tokens, self.hstep, self.vstep, self.font, self.width).display_list
+            self.nodes = HTMLParser(body).parse()
+            self.display_list = Layout(self.nodes, self.hstep, self.vstep, self.font, self.width).display_list
             self.draw()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
@@ -76,8 +80,7 @@ class Browser:
             self.canvas.create_text(x, y - self.scroll, text=c, font=self.font, anchor='nw')
 
     def redraw(self, adjust_text_size=False):
-        self.display_list = Layout(self.current_content, self.hstep, self.vstep, self.font,
-                                   self.width).display_list
+        self.display_list = Layout(self.nodes, self.hstep, self.vstep, self.font, self.width).display_list
         self.draw(adjust_text_size)
 
     def key_press_handler(self, e):
@@ -97,7 +100,8 @@ class Browser:
     def configure(self, e):
         self.width = e.width
         self.height = e.height
-        self.redraw()
+        if self.width != 1 and self.height != 1:
+            self.redraw()
 
     def on_mouse_wheel(self, e):
         if sys.platform.startswith('win'):
