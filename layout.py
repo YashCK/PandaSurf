@@ -1,3 +1,5 @@
+import tkinter
+
 from token import Text
 
 FONTS = {}
@@ -17,10 +19,10 @@ class Layout:
         self.cursor_x = hstep
         self.cursor_y = vstep
         # font information
+        self.font_family = "Times"
         self.weight = "normal"
         self.style = "roman"
         self.size = 16
-        self.font = font
         # go through tokens
         self.recurse(tree)
         self.flush()
@@ -40,6 +42,7 @@ class Layout:
                 self.style = "italic"
             case "b":
                 self.weight = "bold"
+                print("it should be bolding")
             case "small":
                 self.size -= 2
             case "big":
@@ -67,6 +70,7 @@ class Layout:
 
     def text(self, tok):
         font = self.get_font(self.size, self.weight, self.style)
+        print("this is the weight: ", self.weight)
         for word in tok.text.split():
             w = font.measure(word)
             if self.cursor_x + w > self.width - self.hstep:
@@ -100,21 +104,21 @@ class Layout:
         self.cursor_y = baseline + 1.25 * max_descent
 
     def centerline(self):
-        first_char_pos = self.line[0][0]
-        last_word_info = self.line[len(self.line) - 1]
-        last_char_pos = last_word_info[0] + last_word_info[2].measure(last_word_info[1])
-        line_length = last_char_pos - first_char_pos
-        new_x = x + (self.width - line_length) / 2
-        print("width: ", self.width)
-        print("length: ", line_length)
-        print("initial x: ", x)
-        print("new x: ", new_x)
-        self.display_list.append((new_x, y, word, font))
+        # first_char_pos = self.line[0][0]
+        # last_word_info = self.line[len(self.line) - 1]
+        # last_char_pos = last_word_info[0] + last_word_info[2].measure(last_word_info[1])
+        # line_length = last_char_pos - first_char_pos
+        # new_x = x + (self.width - line_length) / 2
+        # print("width: ", self.width)
+        # print("length: ", line_length)
+        # print("initial x: ", x)
+        # print("new x: ", new_x)
+        # self.display_list.append((new_x, y, word, font))
+        pass
 
     def get_font(self, size, weight, slant):
         key = (size, weight, slant)
         if key not in FONTS:
-            self.font.configure(size=size, weight=weight, slant=slant)
-            font = self.font
+            font = tkinter.font.Font(family=self.font_family, size=size, weight=weight, slant=slant)
             FONTS[key] = font
         return FONTS[key]

@@ -26,6 +26,10 @@ class HTMLParser:
                 text = ""
             else:
                 text += c
+                if text[-4:] == '&lt;':
+                    text = text[:-4] + '<'
+                elif text[-4:] == '&gt;':
+                    text = text[:-4] + '>'
         if not in_tag and text:
             self.add_text(text)
         return self.finish()
