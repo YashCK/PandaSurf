@@ -9,21 +9,18 @@ from request import RequestHandler
 
 
 class Browser:
+    WIDTH, HEIGHT = 800, 600
+    HSTEP, VSTEP = 13, 18
+    SCROLL_STEP = 70
+
     def __init__(self):
-        # window attributes
+        # attributes
         self.window = tkinter.Tk()
-        self.width = 800
-        self.height = 600
-        # spacing attributes
-        self.hstep = 13
-        self.vstep = 18
-        self.scroll_step = 70
         self.scroll = 0
-        # canvas
         self.canvas = tkinter.Canvas(
             self.window,
-            width=self.width,
-            height=self.height
+            width=self.WIDTH,
+            height=self.HEIGHT
         )
         # request handler
         self.rq = RequestHandler()
@@ -58,7 +55,7 @@ class Browser:
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
             self.nodes = HTMLParser(body).parse()
-            self.display_list = Layout(self.nodes, self.hstep, self.vstep, self.font, self.width).display_list
+            self.display_list = Layout(self.nodes, self.WIDTH).display_list
             self.draw()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
@@ -69,9 +66,9 @@ class Browser:
         self.canvas.delete("all")
         for x, y, c, f in self.display_list:
             # If the characters are outside the viewing screen, skip the iteration
-            if y > self.scroll + self.height:  # below viewing window
+            if y > self.scroll + self.HEIGHT:  # below viewing window
                 continue
-            if y + self.vstep < self.scroll:  # above viewing window
+            if y + self.VSTEP < self.scroll:  # above viewing window
                 continue
             # Otherwise add the character to the canvas
             self.font = f
@@ -80,27 +77,23 @@ class Browser:
             self.canvas.create_text(x, y - self.scroll, text=c, font=self.font, anchor='nw')
 
     def redraw(self, adjust_text_size=False):
-        self.display_list = Layout(self.nodes, self.hstep, self.vstep, self.font, self.width).display_list
+        self.display_list = Layout(self.nodes, self.WIDTH).display_list
         self.draw(adjust_text_size)
 
     def key_press_handler(self, e):
         match e.keysym:
             case 'plus':
                 self.font_size += 1
-                self.hstep += 1
-                self.vstep += 1
                 self.redraw(True)
             case 'minus':
                 if self.font_size > 1:
                     self.font_size -= 1
-                    self.hstep -= 1
-                    self.vstep -= 1
                     self.redraw(True)
 
     def configure(self, e):
-        self.width = e.width
-        self.height = e.height
-        if self.width != 1 and self.height != 1:
+        self.WIDTH = e.width
+        self.HEIGHT = e.height
+        if self.WIDTH != 1 and self.HEIGHT != 1:
             self.redraw()
 
     def on_mouse_wheel(self, e):
@@ -116,27 +109,27 @@ class Browser:
                 self.mouse_scrollup(e)
 
     def mouse_scrolldown(self, e):
-        self.scroll += self.scroll_step / 3
+        self.scroll += self.SCROLL_STEP / 3
         self.draw()
 
     def mouse_scrollup(self, e):
         if self.scroll > 0:
-            if self.scroll - self.scroll_step < 0:
+            if self.scroll - self.SCROLL_STEP < 0:
                 self.scroll = 0
             else:
-                self.scroll -= self.scroll_step / 3
+                self.scroll -= self.SCROLL_STEP / 3
             self.draw()
 
     def scrolldown(self, e):
-        self.scroll += self.scroll_step
+        self.scroll += self.SCROLL_STEP
         self.draw()
 
     def scrollup(self, e):
         if self.scroll > 0:
-            if self.scroll - self.scroll_step < 0:
+            if self.scroll - self.SCROLL_STEP < 0:
                 self.scroll = 0
             else:
-                self.scroll -= self.scroll_step
+                self.scroll -= self.SCROLL_STEP
             self.draw()
 
 
