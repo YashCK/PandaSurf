@@ -29,7 +29,12 @@
 Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 
 * URL Parsing (HTTP / HTTPS) \[https://.....]
-  - Prints text in the body of the HTTP Response (including special characters &lt;, &gt;)
+  - HTML Parser
+    - Goes through the source code and constructs the DOM tree of tags and text
+    - Is not confused my html attributes
+    - Fixes any malformed html (deals with html, head, body as implicit tags)
+    - Adjust text based on tag (\<b> to bold, \<i> to italicize, \<small>, \<big>, etc...)
+  - Prints text in the body of the HTTP Response (including special characters &lt;, \&gt;)
   - Supports Content-Encoding, Transfer-Encoding, Cache-Control Headers
   - Addresses URLs which are redirects
   - Caches URLs and fetches/deletes resources depending on if they are fresh 
@@ -51,7 +56,7 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 A release of this application is not available yet.
 
 > **Note**
-> If you're using a Mac, you may need to Install Certificates for SSL. You can [see this guide]([linux-desktop-applications-from-windows-10s-bash-shell/](https://stackoverflow.com/questions/52805115/certificate-verify-failed-unable-to-get-local-issuer-certificate)) to address the certification issue with SSL.
+> If you're using a Mac, you may need to Install Certificates for SSL. You can [see this guide]([ssl-certification-for-mac/](https://stackoverflow.com/questions/52805115/certificate-verify-failed-unable-to-get-local-issuer-certificate)) to address the certification issue with SSL.
 > Running Install Certificates.command should fix the issue.
 > Additionally updating your version of python (install through brew) could work.
 
