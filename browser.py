@@ -1,5 +1,6 @@
 import os
 import tkinter
+import tkinter.font
 
 from header import Header
 from request import RequestHandler
@@ -14,6 +15,8 @@ class Browser:
         self.hstep = 13
         self.vstep = 18
         self.scroll_step = 50
+        self.font_size = 16
+        self.scroll = 0
         self.canvas = tkinter.Canvas(
             self.window,
             width=self.width,
@@ -21,7 +24,6 @@ class Browser:
         )
         self.rq = RequestHandler()
         self.display_list = []
-        self.scroll = 0
         self.current_content = ""
         # set up canvas
         self.canvas.pack(expand=True, fill=tkinter.BOTH)
@@ -32,6 +34,7 @@ class Browser:
         self.window.bind("<Button-4>", self.mouse_scrollup)
         self.window.bind("<Button-5>", self.mouse_scrolldown)
         self.window.bind("<Configure>", self.configure)
+        self.window.bind("<KeyPress>", self.key_press_handler)
 
     def load(self, url: str = None):
         try:
@@ -52,6 +55,7 @@ class Browser:
 
     def draw(self):
         self.canvas.delete("all")
+        font = tkinter.font.Font(size=self.font_size)
         for x, y, c in self.display_list:
             # If the characters are outside the viewing screen, skip the iteration
             if y > self.scroll + self.height:  # below viewing window
@@ -59,7 +63,7 @@ class Browser:
             if y + self.vstep < self.scroll:  # above viewing window
                 continue
             # Otherwise add the character to the canvas
-            self.canvas.create_text(x, y - self.scroll, text=c)
+            self.canvas.create_text(x, y - self.scroll, text=c, font=font)
 
     # compute and store the position of each character
     def layout(self, text: str) -> list[(int, int, str)]:
@@ -78,6 +82,22 @@ class Browser:
                 cursor_y += self.vstep
                 cursor_x = self.hstep
         return display_list
+
+    def key_press_handler(self, e):
+        match e.keysym:
+            case 'plus':
+                self.font_size += 1
+                self.hstep += 1
+                self.vstep += 1
+                self.display_list = self.layout(self.current_content)
+                self.draw()
+            case 'minus':
+                if self.font_size > 1:
+                    self.font_size -= 1
+                    self.hstep -= 1
+                    self.vstep -= 1
+                    self.display_list = self.layout(self.current_content)
+                    self.draw()
 
     def configure(self, e):
         self.width = e.width
