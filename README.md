@@ -19,13 +19,10 @@
   <a href="#license">License</a>
 </p>
 
-<!--
-![screenshot](https://raw.githubusercontent.com/amitmerchant1990/electron-markdownify/master/app/img/markdownify.gif)
---> 
+<img width="619" alt="Screen Shot 2023-05-23 at 1 50 50 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/a06d9a74-478f-497e-b508-6bc5a7fc8a14">
 
-<img width="626" alt="Screen Shot 2023-05-22 at 1 03 58 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/ad7ffea4-729d-4f00-9e3a-4ef44acc10df">
+<img width="953" alt="Screen Shot 2023-05-23 at 1 50 40 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/adf83104-b19f-405f-86b0-267e85245810">
 
-<img width="1362" alt="Screen Shot 2023-05-22 at 1 05 51 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/1151f2d7-b0c1-43ab-ba49-d4318e13230b">
 
 ## Key Features
 
