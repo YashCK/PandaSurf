@@ -8,6 +8,7 @@ import zlib
 from address import Address
 from cache import Cache
 from header import Header
+from token import Token, Text, Tag
 
 
 class RequestHandler:
@@ -230,9 +231,10 @@ class RequestHandler:
                 url_headers, url_body = parse_url(inner_url[2:])
                 return url_headers, transform_source(url_body)
 
-    def lex(self, body: str):
+    def lex(self, body: str) -> [Token]:
+        out = []
         content = ""
-        in_angle = False
+        in_tag = False
         in_body = False
         last_seven_chars = "       "
         for c in body:
@@ -244,17 +246,23 @@ class RequestHandler:
                 in_body = False
             # check if an angle brackets
             if c == "<":
-                in_angle = True
+                in_tag = True
+                if content:
+                    out.append(Text(content))
+                content = ""
             elif c == ">":
-                in_angle = False
-            elif (not in_angle) and in_body:
+                in_tag = False
+                out.append(Tag(content))
+                content = ""
+            elif in_body:
                 content += c
                 if content[-4:] == '&lt;':
                     content = content[:-4] + '<'
                 elif content[-4:] == '&gt;':
                     content = content[:-4] + '>'
-        return content
-
+        if not in_tag and content and in_body:
+            out.append(Text(content))
+        return out
 
 # if __name__ == "__main__":
 #     # create default file to open when no url is passed in
