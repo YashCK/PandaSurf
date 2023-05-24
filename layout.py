@@ -12,7 +12,7 @@ class Layout:
     HSTEP = 13
     VSTEP = 18
 
-    def __init__(self, tree, width):
+    def __init__(self, tree, width, font_size):
         # display and line information
         self.display_list = []
         self.line = []
@@ -26,7 +26,7 @@ class Layout:
         self.font_family = "Times"
         self.weight = "normal"
         self.style = "roman"
-        self.size = 16
+        self.size = font_size
         # go through tokens
         self.recurse(tree)
         self.flush()
@@ -89,7 +89,13 @@ class Layout:
                 self.SUPERSCRIPT = False
 
     def text(self, tok: Text):
+        def adjust_line():
+            self.cursor_y += font.metrics("linespace") * 1.25
+            self.cursor_x = self.HSTEP
+            self.flush(self.center_line)
+
         font = self.get_font(self.size, self.weight, self.style)
+
         for word in tok.text.split():
             # Check if word should be superscript
             if self.SUPERSCRIPT:
@@ -97,9 +103,21 @@ class Layout:
             # Add words to line
             w = font.measure(word)
             if self.cursor_x + w > self.width - self.HSTEP:
-                self.cursor_y += font.metrics("linespace") * 1.25
-                self.cursor_x = self.HSTEP
-                self.flush(self.center_line)
+                first_word, second_word = self.hyphenate_word(word, font)
+                if first_word == "":
+                    # no need to hyphenate
+                    adjust_line()
+                else:
+                    # add the first word to this line
+                    self.line.append((self.cursor_x, first_word, font))
+                    self.cursor_x += font.measure(first_word) + font.measure(" ")
+                    adjust_line()
+                    # add the second word to the next line
+                    sw = font.measure(second_word)
+                    self.line.append((self.cursor_x, second_word, font))
+                    self.cursor_x += sw + font.measure(" ")
+                    continue
+
             self.line.append((self.cursor_x, word, font))
             self.cursor_x += w + font.measure(" ")
 
@@ -120,7 +138,6 @@ class Layout:
         baseline = self.cursor_y + 1.25 * max_ascent
         # increase the position of the text if it is superscript text
         if self.SUPERSCRIPT:
-            print("there is superscript")
             baseline = self.cursor_y + 1.75 * max_ascent
         # place each word relative to the line
         # then add to display list
@@ -141,6 +158,25 @@ class Layout:
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
+
+    def hyphenate_word(self, word, word_font):
+        # find soft hyphen positions
+        hyphen_positions = []
+        for i, char in enumerate(word):
+            if char == '\N{soft hyphen}':
+                hyphen_positions.append(i)
+        # determine which hyphen position to use
+        first_part = ""
+        second_part = word
+        for pos in hyphen_positions:
+            first_word = word[:pos] + '-'
+            fw_width = word_font.measure(first_word)
+            if self.cursor_x + fw_width < self.width - self.HSTEP:
+                first_part = first_word
+                second_part = word[pos + 1:]
+            else:
+                break
+        return first_part, second_part
 
     def get_font(self, size, weight, slant):
         key = (size, weight, slant)

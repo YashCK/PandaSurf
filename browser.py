@@ -55,7 +55,7 @@ class Browser:
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
             self.nodes = HTMLParser(body).parse()
-            self.display_list = Layout(self.nodes, self.WIDTH).display_list
+            self.display_list = Layout(self.nodes, self.WIDTH, self.font_size).display_list
             self.draw()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
@@ -77,7 +77,7 @@ class Browser:
             self.canvas.create_text(x, y - self.scroll, text=c, font=self.font, anchor='nw')
 
     def redraw(self, adjust_text_size=False):
-        self.display_list = Layout(self.nodes, self.WIDTH).display_list
+        self.display_list = Layout(self.nodes, self.WIDTH, self.font_size).display_list
         self.draw(adjust_text_size)
 
     def key_press_handler(self, e):

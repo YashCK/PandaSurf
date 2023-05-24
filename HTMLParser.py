@@ -35,6 +35,8 @@ class HTMLParser:
                     text = text[:-4] + '<'
                 elif text[-4:] == '&gt;':
                     text = text[:-4] + '>'
+                elif text[-4:] == '&shy':
+                    text = text[:-4] + '\N{soft hyphen}'
         if not in_tag and text:
             self.add_text(text)
         return self.finish()
