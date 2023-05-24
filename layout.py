@@ -9,6 +9,7 @@ class Layout:
     LAST_LINE_START_POS = (0, 0)
     SUPERSCRIPT = False
     SUPERSCRIPT_WORDS = []
+    IN_PRE_TAG = False
     HSTEP = 13
     VSTEP = 18
 
@@ -62,6 +63,9 @@ class Layout:
                 self.SUPERSCRIPT = True
             case "sub":
                 self.size = int(self.size / 2)
+            case "pre":
+                self.font_family = "Courier New"
+                self.IN_PRE_TAG = True
 
     def close_tag(self, elem: Element):
         match elem.tag:
@@ -87,6 +91,9 @@ class Layout:
             case "sup" | "sub":
                 self.size *= 2
                 self.SUPERSCRIPT = False
+            case "pre":
+                self.font_family = "Times"
+                self.IN_PRE_TAG = False
 
     def text(self, tok: Text):
         def adjust_line():
@@ -95,8 +102,9 @@ class Layout:
             self.flush(self.center_line)
 
         font = self.get_font(self.size, self.weight, self.style)
+        words = self.construct_words(tok)
 
-        for word in tok.text.split():
+        for word in words:
             # Check if word should be superscript
             if self.SUPERSCRIPT:
                 self.SUPERSCRIPT_WORDS.append(word)
@@ -104,7 +112,7 @@ class Layout:
             w = font.measure(word)
             if self.cursor_x + w > self.width - self.HSTEP:
                 first_word, second_word = self.hyphenate_word(word, font)
-                if first_word == "":
+                if first_word == "" or (self.IN_PRE_TAG and word == "\n"):
                     # no need to hyphenate
                     adjust_line()
                 else:
@@ -117,9 +125,29 @@ class Layout:
                     self.line.append((self.cursor_x, second_word, font))
                     self.cursor_x += sw + font.measure(" ")
                     continue
-
             self.line.append((self.cursor_x, word, font))
-            self.cursor_x += w + font.measure(" ")
+            self.cursor_x += w
+            if not self.IN_PRE_TAG:
+                self.cursor_x += font.measure(" ")
+
+    def construct_words(self, tok: Text):
+        if self.IN_PRE_TAG:
+            # to not ignore whitespace and line breaks, we construct words character by character
+            words = []
+            w = ''
+            for c in tok.text:
+                if c.isspace():
+                    if w:
+                        words.append(w)
+                    w = ''
+                    words.append(c)
+                else:
+                    w += c
+            if w:
+                words.append(w)
+            return words
+        else:
+            return tok.text.split()
 
     def flush(self, center_line=False):
         if not self.line:
