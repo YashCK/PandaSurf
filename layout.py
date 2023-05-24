@@ -51,6 +51,9 @@ class Layout:
                 self.size -= 2
             case "big":
                 self.size += 4
+            case "p":
+                self.flush()
+                self.cursor_y += self.VSTEP
             case "br":
                 self.flush()
             case "h1":
@@ -79,7 +82,7 @@ class Layout:
                 self.size -= 4
             case "p":
                 self.flush()
-                self.cursor_y += self.VSTEP
+                self.cursor_y += 1.5*self.VSTEP
             case "h1":
                 if self.center_line:
                     self.flush(center_line=True)
@@ -105,7 +108,7 @@ class Layout:
         words = self.construct_words(tok)
 
         for word in words:
-            # Check if word should be superscript
+            # check if word should be superscript
             if self.SUPERSCRIPT:
                 self.SUPERSCRIPT_WORDS.append(word)
             # Add words to line

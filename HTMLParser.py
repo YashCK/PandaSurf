@@ -2,7 +2,6 @@ from token import Text, Element
 
 
 class HTMLParser:
-
     SELF_CLOSING_TAGS = [
         "area", "base", "br", "col", "embed", "hr", "img", "input",
         "link", "meta", "param", "source", "track", "wbr",
@@ -18,43 +17,61 @@ class HTMLParser:
         self.unfinished = []
 
     def parse(self):
-        last_four_chars = "    "
+        last_ten_chars = "          "
         text = ""
-        read_text = True
         in_tag = False
+        in_script = False
+        read_text = True
         last_known_tag = False
         for c in self.body:
-            last_four_chars = last_four_chars[-3:] + c
+            last_ten_chars = last_ten_chars[-9:] + c
             # check for comments
-            if last_four_chars == "<!--":
+            if last_ten_chars[-4:] == "<!--":
                 read_text = False
                 in_tag = last_known_tag
-                last_four_chars = "    "
+                last_ten_chars = "          "
                 text = text[:-2]
-            elif last_four_chars[-3:] == "-->":
+            elif last_ten_chars[-3:] == "-->":
                 read_text = True
                 continue
+            # proceed if not in a comment
             if read_text:
-                # check for tags
-                if c == "<":
-                    last_known_tag = in_tag
-                    in_tag = True
-                    if text:
-                        self.add_text(text)
-                    text = ""
-                elif c == ">":
-                    last_known_tag = in_tag
-                    in_tag = False
-                    self.add_tag(text)
-                    text = ""
+                if in_script:
+                    if last_ten_chars[-9:] == "</script>":
+                        text = text[:-8]
+                        # add content inside of script tags as text
+                        if text:
+                            self.add_text(text)
+                        text = ""
+                        # close of the tag
+                        last_known_tag = False
+                        in_tag = False
+                        in_script = False
+                        self.add_tag("/script")
+                    else:
+                        text += c
                 else:
-                    text += c
-                    if text[-4:] == '&lt;':
-                        text = text[:-4] + '<'
-                    elif text[-4:] == '&gt;':
-                        text = text[:-4] + '>'
-                    elif text[-4:] == '&shy':
-                        text = text[:-4] + '\N{soft hyphen}'
+                    # check for tags
+                    if c == "<":
+                        last_known_tag = in_tag
+                        in_tag = True
+                        if text:
+                            self.add_text(text)
+                        text = ""
+                    elif c == ">":
+                        last_known_tag = in_tag
+                        in_tag = False
+                        self.add_tag(text)
+                        in_script = check_in_script(text)
+                        text = ""
+                    else:
+                        text += c
+                        if text[-4:] == '&lt;':
+                            text = text[:-4] + '<'
+                        elif text[-4:] == '&gt;':
+                            text = text[:-4] + '>'
+                        elif text[-4:] == '&shy':
+                            text = text[:-4] + '\N{soft hyphen}'
         if not in_tag and text:
             self.add_text(text)
         return self.finish()
@@ -70,7 +87,7 @@ class HTMLParser:
         parent.children.append(node)
 
     def add_tag(self, tag):
-        tag, attributes = self.get_attributes(tag)
+        tag, attributes = get_attributes(tag)
         # ignore doctype declarations and comments
         if tag.startswith("!"):
             return
@@ -93,22 +110,6 @@ class HTMLParser:
             parent = self.unfinished[-1] if self.unfinished else None
             node = Element(tag, attributes, parent)
             self.unfinished.append(node)
-
-    def get_attributes(self, text):
-        parts = text.split()
-        tag = parts[0].lower()
-        attributes = {}
-        for attrpair in parts[1:]:
-            if "=" in attrpair:
-                key, value = attrpair.split("=", 1)
-                # value can also be quoted -> strip the quote out
-                if len(value) > 2 and value[0] in ["'", "\""]:
-                    value = value[1:-1]
-                attributes[key.lower()] = value
-            else:
-                # empty string attribute
-                attributes[attrpair.lower()] = ""
-        return tag, attributes
 
     # turn incomplete tree to a complete tree by finishing unfinished nodes
     def finish(self):
@@ -144,3 +145,26 @@ class HTMLParser:
                 self.add_tag("/head")
             else:
                 break
+
+
+def get_attributes(text):
+    parts = text.split()
+    tag = parts[0].lower()
+    attributes = {}
+    for attrpair in parts[1:]:
+        if "=" in attrpair:
+            key, value = attrpair.split("=", 1)
+            # value can also be quoted -> strip the quote out
+            if len(value) > 2 and value[0] in ["'", "\""]:
+                value = value[1:-1]
+            attributes[key.lower()] = value
+        else:
+            # empty string attribute
+            attributes[attrpair.lower()] = ""
+    return tag, attributes
+
+
+def check_in_script(text):
+    parts = text.split()
+    tag = parts[0].lower()
+    return tag == "script"
