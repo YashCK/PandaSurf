@@ -18,25 +18,43 @@ class HTMLParser:
         self.unfinished = []
 
     def parse(self):
+        last_four_chars = "    "
         text = ""
+        read_text = True
         in_tag = False
+        last_known_tag = False
         for c in self.body:
-            if c == "<":
-                in_tag = True
-                if text: self.add_text(text)
-                text = ""
-            elif c == ">":
-                in_tag = False
-                self.add_tag(text)
-                text = ""
-            else:
-                text += c
-                if text[-4:] == '&lt;':
-                    text = text[:-4] + '<'
-                elif text[-4:] == '&gt;':
-                    text = text[:-4] + '>'
-                elif text[-4:] == '&shy':
-                    text = text[:-4] + '\N{soft hyphen}'
+            last_four_chars = last_four_chars[-3:] + c
+            # check for comments
+            if last_four_chars == "<!--":
+                read_text = False
+                in_tag = last_known_tag
+                last_four_chars = "    "
+                text = text[:-2]
+            elif last_four_chars[-3:] == "-->":
+                read_text = True
+                continue
+            if read_text:
+                # check for tags
+                if c == "<":
+                    last_known_tag = in_tag
+                    in_tag = True
+                    if text:
+                        self.add_text(text)
+                    text = ""
+                elif c == ">":
+                    last_known_tag = in_tag
+                    in_tag = False
+                    self.add_tag(text)
+                    text = ""
+                else:
+                    text += c
+                    if text[-4:] == '&lt;':
+                        text = text[:-4] + '<'
+                    elif text[-4:] == '&gt;':
+                        text = text[:-4] + '>'
+                    elif text[-4:] == '&shy':
+                        text = text[:-4] + '\N{soft hyphen}'
         if not in_tag and text:
             self.add_text(text)
         return self.finish()
