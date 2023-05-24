@@ -20,11 +20,14 @@ class HTMLParser:
         last_ten_chars = "          "
         text = ""
         in_tag = False
+        in_quotes = False
         in_script = False
         read_text = True
         last_known_tag = False
         for c in self.body:
             last_ten_chars = last_ten_chars[-9:] + c
+            if c == "\"":
+                in_quotes = not in_quotes
             # check for comments
             if last_ten_chars[-4:] == "<!--":
                 read_text = False
@@ -58,7 +61,7 @@ class HTMLParser:
                         if text:
                             self.add_text(text)
                         text = ""
-                    elif c == ">":
+                    elif c == ">" and not in_quotes:
                         last_known_tag = in_tag
                         in_tag = False
                         self.add_tag(text)
