@@ -55,13 +55,14 @@ class Browser:
             accept_encoding_header = Header("Accept-Encoding", "gzip")
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
-            self.nodes = HTMLParser(body).parse()
             # Begin layout tree
+            self.nodes = HTMLParser(body).parse()
             self.document = DocumentLayout(self.nodes)
-            self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
-            self.display_list = self.document.display_list
-            # self.display_list = Layout(self.nodes, self.WIDTH, self.font_size).display_list
-            self.draw()
+            # self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
+            # self.display_list = []
+            # self.document.paint(self.display_list)
+            # self.draw()
+            self.redraw()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
         except ValueError:
@@ -69,21 +70,18 @@ class Browser:
 
     def draw(self, redraw=False):
         self.canvas.delete("all")
-        for x, y, c, f in self.display_list:
-            # If the characters are outside the viewing screen, skip the iteration
-            if y > self.scroll + self.HEIGHT:  # below viewing window
-                continue
-            if y + self.VSTEP < self.scroll:  # above viewing window
-                continue
-            # Otherwise add the character to the canvas
-            self.font = f
+        for cmd in self.display_list:
+            if cmd.top > self.scroll + self.HEIGHT: continue
+            if cmd.bottom < self.scroll: continue
             if redraw:
-                self.font.configure(size=self.font_size)
-            self.canvas.create_text(x, y - self.scroll, text=c, font=self.font, anchor='nw')
+                cmd.execute(self.scroll, self.canvas, self.font_size)
+            else:
+                cmd.execute(self.scroll, self.canvas)
 
     def redraw(self, adjust_text_size=False):
         self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
-        self.display_list = self.document.display_list
+        self.display_list = []
+        self.document.paint(self.display_list)
         self.draw(adjust_text_size)
 
     def key_press_handler(self, e):
@@ -115,7 +113,8 @@ class Browser:
                 self.mouse_scrollup(e)
 
     def mouse_scrolldown(self, e):
-        self.scroll += self.SCROLL_STEP / 3
+        max_y = self.document.height - self.HEIGHT
+        self.scroll = min(self.scroll + self.SCROLL_STEP/3, max_y)
         self.draw()
 
     def mouse_scrollup(self, e):
@@ -127,7 +126,8 @@ class Browser:
             self.draw()
 
     def scrolldown(self, e):
-        self.scroll += self.SCROLL_STEP
+        max_y = self.document.height - self.HEIGHT
+        self.scroll = min(self.scroll + self.SCROLL_STEP, max_y)
         self.draw()
 
     def scrollup(self, e):

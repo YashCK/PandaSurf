@@ -2,6 +2,7 @@
 # vertically one after another
 import tkinter
 
+from draw import DrawText, DrawRect
 from token import Text, Element
 
 FONTS = {}
@@ -87,9 +88,6 @@ class BlockLayout:
         # recursively call layout on each child
         for child in self.children:
             child.layout(font_size)
-        # gather display list in a single array
-        for child in self.children:
-            self.display_list.extend(child.display_list)
         # height of the block should be the sum of its children heights
         if mode == "block":
             self.height = sum([child.height for child in self.children])
@@ -236,6 +234,20 @@ class BlockLayout:
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
+
+    def paint(self, display_list):
+        # add DrawRect commands for backgrounds
+        if isinstance(self.node, Element) and self.node.tag == "pre":
+            x2, y2 = self.x + self.width, self.y + self.height
+            rect = DrawRect(self.x, self.y, x2, y2, "gray")
+            display_list.append(rect)
+        # add DrawText for text objects
+        if self.layout_mode(self.node) == "inline":
+            for x, y, word, font in self.display_list:
+                display_list.append(DrawText(x, y, word, font))
+        # apply the following for the node's children
+        for child in self.children:
+            child.paint(display_list)
 
     def construct_words(self, tok: Text):
         if self.IN_PRE_TAG:

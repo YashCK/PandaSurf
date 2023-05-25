@@ -24,10 +24,12 @@ class DocumentLayout:
     def layout(self, window_width, window_height, font_size):
         child = BlockLayout(self.node, self, None)
         self.children.append(child)
-        self.display_list = child.display_list
         # set attributes such that there is padding around content
         self.width = window_width - 2 * self.HSTEP
         self.x = self.HSTEP
         self.y = self.VSTEP
         child.layout(font_size)
         self.height = child.height + 2 * self.VSTEP
+
+    def paint(self, display_list):
+        self.children[0].paint(display_list)
