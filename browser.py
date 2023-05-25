@@ -3,14 +3,13 @@ import tkinter
 import tkinter.font
 
 from HTMLParser import HTMLParser
-from SourceParser import SourceParser
+from document_layout import DocumentLayout
 from header import Header
-from layout import Layout
 from request import RequestHandler
 
 
 class Browser:
-    WIDTH, HEIGHT = 800, 600
+    WIDTH, HEIGHT = 1000, 800
     HSTEP, VSTEP = 13, 18
     SCROLL_STEP = 70
 
@@ -26,6 +25,7 @@ class Browser:
         # request handler
         self.rq = RequestHandler()
         # content attributes
+        self.document = None
         self.display_list = []
         self.nodes = None
         # set up canvas
@@ -40,7 +40,7 @@ class Browser:
         self.window.bind("<KeyPress>", self.key_press_handler)
         # set up font
         self.font = tkinter.font.Font(
-            family="Times",
+            family="Didot",
             size=16,
             weight="normal",
             slant="roman",
@@ -55,10 +55,12 @@ class Browser:
             accept_encoding_header = Header("Accept-Encoding", "gzip")
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
-
-            scheme = url.split(":", 1)[0]
             self.nodes = HTMLParser(body).parse()
-            self.display_list = Layout(self.nodes, self.WIDTH, self.font_size).display_list
+            # Begin layout tree
+            self.document = DocumentLayout(self.nodes)
+            self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
+            self.display_list = self.document.display_list
+            # self.display_list = Layout(self.nodes, self.WIDTH, self.font_size).display_list
             self.draw()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
@@ -80,7 +82,8 @@ class Browser:
             self.canvas.create_text(x, y - self.scroll, text=c, font=self.font, anchor='nw')
 
     def redraw(self, adjust_text_size=False):
-        self.display_list = Layout(self.nodes, self.WIDTH, self.font_size).display_list
+        self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
+        self.display_list = self.document.display_list
         self.draw(adjust_text_size)
 
     def key_press_handler(self, e):
