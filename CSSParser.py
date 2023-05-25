@@ -1,4 +1,4 @@
-from token import Element
+from selector import TagSelector, DescendantSelector
 
 
 class CSSParser:
@@ -42,7 +42,7 @@ class CSSParser:
     def body(self):
         # parse sequences by calling the parsing functions in a loop
         pairs = {}
-        while self.i < len(self.s):
+        while self.i < len(self.s) and self.s[self.i] != "}":
             try:
                 prop, val = self.pair()
                 pairs[prop.lower()] = val
@@ -68,3 +68,36 @@ class CSSParser:
                 return self.s[self.i]
             else:
                 self.i += 1
+
+    def selector(self):
+        # create selector objects
+        out = TagSelector(self.word().lower())
+        self.whitespace()
+        while self.i < len(self.s) and self.s[self.i] != "{":
+            tag = self.word()
+            descendant = TagSelector(tag.lower())
+            out = DescendantSelector(out, descendant)
+            self.whitespace()
+        return out
+
+    def parse(self):
+        # css files are a sequence of selectors and blocks
+        rules = []
+        while self.i < len(self.s):
+            try:
+                self.whitespace()
+                selector = self.selector()
+                self.literal("{")
+                self.whitespace()
+                body = self.body()
+                self.literal("}")
+                rules.append((selector, body))
+            except AssertionError:
+                # if there is a parse error skip the whole rule
+                why = self.ignore_until(["}"])
+                if why == "}":
+                    self.literal("}")
+                    self.whitespace()
+                else:
+                    break
+        return rules
