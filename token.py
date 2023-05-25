@@ -11,6 +11,8 @@ class Text(Token):
     def __repr__(self):
         return repr(self.text)
 
+    def __str__(self):
+        return str(self.text)
 
 class Element(Token):
     def __init__(self, tag, attributes, parent):
@@ -20,5 +22,8 @@ class Element(Token):
         self.parent = parent
 
     def __repr__(self):
+        return "<" + self.tag + ">"
+
+    def __str__(self):
         return "<" + self.tag + ">"
 

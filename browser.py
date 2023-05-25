@@ -3,6 +3,7 @@ import tkinter
 import tkinter.font
 
 from HTMLParser import HTMLParser
+from SourceParser import SourceParser
 from header import Header
 from layout import Layout
 from request import RequestHandler
@@ -54,6 +55,8 @@ class Browser:
             accept_encoding_header = Header("Accept-Encoding", "gzip")
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
+
+            scheme = url.split(":", 1)[0]
             self.nodes = HTMLParser(body).parse()
             self.display_list = Layout(self.nodes, self.WIDTH, self.font_size).display_list
             self.draw()

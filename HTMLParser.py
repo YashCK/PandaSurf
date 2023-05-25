@@ -129,6 +129,13 @@ class HTMLParser:
         for child in node.children:
             self.print_tree(child, indent + 2)
 
+    def tree_str(self, node, indent=0):
+        t = " " * indent
+        t += node.__str__()
+        for child in node.children:
+            t += "\n" + self.tree_str(child, indent + 2)
+        return t
+
     def implicit_tags(self, tag=None):
         # compare the list of unfinished tags to figure out which ones have been omitted
         # more than one tag can be omitted in each row -> loop
