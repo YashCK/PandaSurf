@@ -2,10 +2,12 @@ import os
 import tkinter
 import tkinter.font
 
+from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from document_layout import DocumentLayout
 from header import Header
 from request import RequestHandler
+from token import Element
 
 
 class Browser:
@@ -79,6 +81,7 @@ class Browser:
                 cmd.execute(self.scroll, self.canvas)
 
     def redraw(self, adjust_text_size=False):
+        style(self.nodes)
         self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
         self.display_list = []
         self.document.paint(self.display_list)
@@ -114,7 +117,7 @@ class Browser:
 
     def mouse_scrolldown(self, e):
         max_y = self.document.height - self.HEIGHT
-        self.scroll = min(self.scroll + self.SCROLL_STEP/3, max_y)
+        self.scroll = min(self.scroll + self.SCROLL_STEP / 3, max_y)
         self.draw()
 
     def mouse_scrollup(self, e):
@@ -137,6 +140,19 @@ class Browser:
             else:
                 self.scroll -= self.SCROLL_STEP
             self.draw()
+
+
+def style(node):
+    node.style = {}
+    # ...
+    # parse style attribute to fill in the style filed
+    if isinstance(node, Element) and "style" in node.attributes:
+        pairs = CSSParser(node.attributes["style"]).body()
+        for prop, value in pairs.items():
+            node.style[prop] = value
+    #
+    for child in node.children:
+        style(child)
 
 
 # Main method
