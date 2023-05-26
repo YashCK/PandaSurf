@@ -91,7 +91,9 @@ class Browser:
                 # ignores style sheets that fail to download
                 continue
             rules.extend(CSSParser(body).parse())
-        style(self.nodes, rules)
+        # apply style in cascading order
+        style(self.nodes, sorted(rules, key=cascade_priority))
+        # compute the layout to be displayed in the browser
         self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
         self.display_list = []
         self.document.paint(self.display_list)
@@ -158,8 +160,8 @@ def style(node, rules):
     # to the element's style information
     for selector, body in rules:
         if not selector.matches(node): continue
-        for property, value in body.items():
-            node.style[property] = value
+        for prop, value in body.items():
+            node.style[prop] = value
     # parse style attribute to fill in the style filed
     if isinstance(node, Element) and "style" in node.attributes:
         pairs = CSSParser(node.attributes["style"]).body()
@@ -187,11 +189,16 @@ def resolve_url(url, current):
         return directory + "/" + url
 
 
-def tree_to_list(tree, list):
-    list.append(tree)
+def tree_to_list(tree, array):
+    array.append(tree)
     for child in tree.children:
-        tree_to_list(child, list)
-    return list
+        tree_to_list(child, array)
+    return array
+
+
+def cascade_priority(rule):
+    selector, body = rule
+    return selector.priority
 
 
 # Main method
