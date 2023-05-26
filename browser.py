@@ -15,6 +15,13 @@ class Browser:
     HSTEP, VSTEP = 13, 18
     SCROLL_STEP = 70
 
+    INHERITED_PROPERTIES = {
+        "font-size": "16px",
+        "font-style": "normal",
+        "font-weight": "normal",
+        "color": "black",
+    }
+
     def __init__(self):
         # attributes
         self.window = tkinter.Tk()
@@ -153,23 +160,50 @@ class Browser:
                 self.scroll -= self.SCROLL_STEP
             self.draw()
 
+    def style(self, node, rules):
+        node.style = {}
+        #
+        for prop, default_value in self.INHERITED_PROPERTIES.items():
+            if node.parent:
+                node.style[prop] = node.parent.style[prop]
+            else:
+                node.style[prop] = default_value
+        # loop over all elements and all rules in order to add the property/value pairs
+        # to the element's style information
+        for selector, body in rules:
+            if not selector.matches(node): continue
+            for prop, value in body.items():
+                computed_value = self.compute_style(node, prop, value)
+                if not computed_value: continue
+                node.style[prop] = computed_value
+        # parse style attribute to fill in the style filed
+        if isinstance(node, Element) and "style" in node.attributes:
+            pairs = CSSParser(node.attributes["style"]).body()
+            for prop, value in pairs.items():
+                node.style[prop] = value
+        #
+        for child in node.children:
+            self.style(child, rules)
 
-def style(node, rules):
-    node.style = {}
-    # loop over all elements and all rules in order to add the property/value pairs
-    # to the element's style information
-    for selector, body in rules:
-        if not selector.matches(node): continue
-        for prop, value in body.items():
-            node.style[prop] = value
-    # parse style attribute to fill in the style filed
-    if isinstance(node, Element) and "style" in node.attributes:
-        pairs = CSSParser(node.attributes["style"]).body()
-        for prop, value in pairs.items():
-            node.style[prop] = value
-    #
-    for child in node.children:
-        style(child, rules)
+    def compute_style(self, node, prop, value):
+        # browsers resolve percentages to absolute pixel units
+        # before they are storied in style or are inherited
+        if prop == "font-size":
+            if value.endswith("px"):
+                return value
+            elif value.endswith("%"):
+                # percentage for the root html element is relative to default font size
+                if node.parent:
+                    parent_font_size = node.parent.style["font-size"]
+                else:
+                    parent_font_size = self.INHERITED_PROPERTIES["font-size"]
+                node_pct = float(value[:-1]) / 100
+                parent_px = float(parent_font_size[:-2])
+                return str(node_pct * parent_px) + "px"
+            else:
+                return None
+        else:
+            return value
 
 
 def resolve_url(url, current):
