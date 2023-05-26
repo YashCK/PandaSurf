@@ -21,6 +21,7 @@
 
 <!-- Online Diff Eq Notes -->
 
+### Ex: This is what appears when you search this website up:
 <img width="622" alt="Screen Shot 2023-05-25 at 11 29 55 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/7b1f0a59-d7fe-49e2-8f5d-cfcafed76c25">
 
 <img width="1286" alt="Screen Shot 2023-05-25 at 11 26 34 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/0c071512-cc38-4bd2-91b8-8787824591fa">
@@ -51,6 +52,8 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
   - Supports Content-Encoding, Transfer-Encoding, Cache-Control Headers
   - Addresses URLs which are redirects
   - Caches URLs and fetches/deletes resources depending on if they are fresh 
+  - Allow for scrolling
+  - Zooming In/Out
 
 * File \[file:///.....]
   - Primarily for Text Files
