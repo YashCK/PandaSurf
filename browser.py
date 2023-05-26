@@ -27,9 +27,11 @@ class Browser:
         # request handler
         self.rq = RequestHandler()
         # content attributes
+        self.current_url = None
         self.document = None
         self.display_list = []
         self.nodes = None
+        self.font_size = 16
         # set up canvas
         self.canvas.pack(expand=True, fill=tkinter.BOTH)
         # bind keys
@@ -40,14 +42,9 @@ class Browser:
         self.window.bind("<Button-5>", self.mouse_scrolldown)
         self.window.bind("<Configure>", self.configure)
         self.window.bind("<KeyPress>", self.key_press_handler)
-        # set up font
-        # self.font = tkinter.font.Font(
-        #     family="Didot",
-        #     size=16,
-        #     weight="normal",
-        #     slant="roman",
-        # )
-        self.font_size = 16
+        # store browser's style sheet
+        with open("browser.css") as f:
+            self.default_style_sheet = CSSParser(f.read()).parse()
 
     def load(self, url: str = None):
         try:
@@ -57,13 +54,9 @@ class Browser:
             accept_encoding_header = Header("Accept-Encoding", "gzip")
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
+            self.current_url = url
             # Begin layout tree
             self.nodes = HTMLParser(body).parse()
-            # self.document = DocumentLayout(self.nodes)
-            # self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
-            # self.display_list = []
-            # self.document.paint(self.display_list)
-            # self.draw()
             self.redraw()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
@@ -82,7 +75,23 @@ class Browser:
 
     def redraw(self, adjust_text_size=False):
         self.document = DocumentLayout(self.nodes)
-        style(self.nodes)
+        rules = self.default_style_sheet.copy()
+        # grab the URL of each linked style sheet
+        links = [node.attributes["href"]
+                 for node in tree_to_list(self.nodes, [])
+                 if isinstance(node, Element)
+                 and node.tag == "link"
+                 and "href" in node.attributes
+                 and node.attributes.get("rel") == "stylesheet"]
+        # browser can request each linked style sheet and add its rules to the rules list
+        for link in links:
+            try:
+                header, body = self.rq.request(resolve_url(link, self.current_url))
+            except:
+                # ignores style sheets that fail to download
+                continue
+            rules.extend(CSSParser(body).parse())
+        style(self.nodes, rules)
         self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
         self.display_list = []
         self.document.paint(self.display_list)
@@ -143,9 +152,14 @@ class Browser:
             self.draw()
 
 
-def style(node):
+def style(node, rules):
     node.style = {}
-    # ...
+    # loop over all elements and all rules in order to add the property/value pairs
+    # to the element's style information
+    for selector, body in rules:
+        if not selector.matches(node): continue
+        for property, value in body.items():
+            node.style[property] = value
     # parse style attribute to fill in the style filed
     if isinstance(node, Element) and "style" in node.attributes:
         pairs = CSSParser(node.attributes["style"]).body()
@@ -153,7 +167,31 @@ def style(node):
             node.style[prop] = value
     #
     for child in node.children:
-        style(child)
+        style(child, rules)
+
+
+def resolve_url(url, current):
+    # convert host-relative/path-relative URLs to full URLs
+    if "://" in url:
+        return url
+    elif url.startswith("/"):
+        scheme, hostpath = current.split("://", 1)
+        host, oldpath = hostpath.split("/", 1)
+        return scheme + "://" + host + url
+    else:
+        directory, _ = current.rsplit("/", 1)
+        while url.startswith("../"):
+            url = url[3:]
+            if directory.count("/") == 2: continue
+            directory, _ = directory.rsplit("/", 1)
+        return directory + "/" + url
+
+
+def tree_to_list(tree, list):
+    list.append(tree)
+    for child in tree.children:
+        tree_to_list(child, list)
+    return list
 
 
 # Main method

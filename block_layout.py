@@ -239,16 +239,16 @@ class BlockLayout:
 
     def paint(self, display_list):
         # browser can consult element for styling information
-        # bgcolor = self.node.style.get("background-color", "transparent")
-        # if bgcolor != "transparent":
-        #     x2, y2 = self.x + self.width, self.y + self.height
-        #     rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
-        #     display_list.append(rect)
-        # add DrawRect commands for backgrounds
-        if isinstance(self.node, Element) and self.node.tag == "pre":
+        bgcolor = self.node.style.get("background-color", "transparent")
+        if bgcolor != "transparent":
             x2, y2 = self.x + self.width, self.y + self.height
-            rect = DrawRect(self.x, self.y, x2, y2, "gray")
+            rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
             display_list.append(rect)
+        # add DrawRect commands for backgrounds
+        # if isinstance(self.node, Element) and self.node.tag == "pre":
+        #     x2, y2 = self.x + self.width, self.y + self.height
+        #     rect = DrawRect(self.x, self.y, x2, y2, "gray")
+        #     display_list.append(rect)
         # add DrawText for text objects
         if self.layout_mode(self.node) == "inline":
             for x, y, word, font in self.display_list:
