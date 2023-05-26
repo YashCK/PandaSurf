@@ -41,12 +41,12 @@ class Browser:
         self.window.bind("<Configure>", self.configure)
         self.window.bind("<KeyPress>", self.key_press_handler)
         # set up font
-        self.font = tkinter.font.Font(
-            family="Didot",
-            size=16,
-            weight="normal",
-            slant="roman",
-        )
+        # self.font = tkinter.font.Font(
+        #     family="Didot",
+        #     size=16,
+        #     weight="normal",
+        #     slant="roman",
+        # )
         self.font_size = 16
 
     def load(self, url: str = None):
@@ -59,7 +59,7 @@ class Browser:
             headers, body = self.rq.request(url, header_list)
             # Begin layout tree
             self.nodes = HTMLParser(body).parse()
-            self.document = DocumentLayout(self.nodes)
+            # self.document = DocumentLayout(self.nodes)
             # self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
             # self.display_list = []
             # self.document.paint(self.display_list)
@@ -81,6 +81,7 @@ class Browser:
                 cmd.execute(self.scroll, self.canvas)
 
     def redraw(self, adjust_text_size=False):
+        self.document = DocumentLayout(self.nodes)
         style(self.nodes)
         self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
         self.display_list = []

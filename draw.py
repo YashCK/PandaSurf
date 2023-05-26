@@ -7,13 +7,12 @@ class DrawText:
         self.bottom = y1 + font.metrics("linespace")
 
     def execute(self, scroll, canvas, alternate_size=None):
-        font_size = self.font
         if alternate_size:
-            font_size = alternate_size
+            self.font.configure(size=alternate_size)
         canvas.create_text(
             self.left, self.top - scroll,
             text=self.text,
-            font=font_size,
+            font=self.font,
             anchor='nw',
         )
 
@@ -26,7 +25,7 @@ class DrawRect:
         self.right = x2
         self.color = color
 
-    def execute(self, scroll, canvas):
+    def execute(self, scroll, canvas, alternate_size=None):
         canvas.create_rectangle(
             self.left, self.top - scroll,
             self.right, self.bottom - scroll,

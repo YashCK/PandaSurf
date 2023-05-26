@@ -1,5 +1,4 @@
 import time
-from typing import Any
 
 from address import Address
 

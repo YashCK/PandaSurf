@@ -95,16 +95,13 @@ class BlockLayout:
             # in the case the block is simply a text block
             self.height = self.cursor_y
 
-    def text(self, tok: Text):
-        def adjust_line():
-            self.cursor_y += font.metrics("linespace") * 1.25
-            self.cursor_x = self.HSTEP
-            self.flush(self.center_line)
-
+    def text(self, node):
+        # find font and list of words to use
         font = self.get_font(self.size, self.weight, self.style)
-        words = self.construct_words(tok)
-
+        words = self.construct_words(node)
+        # find positions for all the words in the list
         for word in words:
+            # print("word: ", word, " block pos: ", self.x, " ", self.y)
             # check if word should be superscript
             if self.SUPERSCRIPT:
                 self.SUPERSCRIPT_WORDS.append(word)
@@ -114,17 +111,22 @@ class BlockLayout:
                 first_word, second_word = self.hyphenate_word(word, font)
                 if first_word == "" or (self.IN_PRE_TAG and word == "\n"):
                     # no need to hyphenate
-                    adjust_line()
+                    self.flush(self.center_line)
                 else:
                     # add the first word to this line
                     self.line.append((self.cursor_x, first_word, font))
-                    self.cursor_x += font.measure(first_word) + font.measure(" ")
-                    adjust_line()
+                    self.cursor_x += font.measure(first_word)
+                    if not self.IN_PRE_TAG:
+                        self.cursor_x += font.measure(" ")
+                    self.flush(self.center_line)
                     # add the second word to the next line
-                    sw = font.measure(second_word)
                     self.line.append((self.cursor_x, second_word, font))
-                    self.cursor_x += sw + font.measure(" ")
+                    self.cursor_x += font.measure(second_word)
+                    if not self.IN_PRE_TAG:
+                        self.cursor_x += font.measure(" ")
+                    # skip to next iteration
                     continue
+            # add to end of the line
             self.line.append((self.cursor_x, word, font))
             self.cursor_x += w
             if not self.IN_PRE_TAG:
@@ -193,7 +195,7 @@ class BlockLayout:
                 self.size *= 2
                 self.SUPERSCRIPT = False
             case "pre":
-                self.font_family = "Times"
+                self.font_family = "Didot"
                 self.IN_PRE_TAG = False
 
     def flush(self, center_line=False):
@@ -211,9 +213,9 @@ class BlockLayout:
         # figure out the tallest word
         max_ascent = max([metric["ascent"] for metric in metrics])
         baseline = self.cursor_y + 1.25 * max_ascent
-        # increase the position of the text if it is superscript text
-        if self.SUPERSCRIPT:
-            baseline = self.cursor_y + 1.75 * max_ascent
+        # # increase the position of the text if it is superscript text
+        # if self.SUPERSCRIPT:
+        #     baseline = self.cursor_y + 1.75 * max_ascent
         # place each word relative to the line
         # then add to display list
         for rel_x, word, font in self.line:
@@ -237,16 +239,16 @@ class BlockLayout:
 
     def paint(self, display_list):
         # browser can consult element for styling information
-        bgcolor = self.node.style.get("background-color", "transparent")
-        if bgcolor != "transparent":
-            x2, y2 = self.x + self.width, self.y + self.height
-            rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
-            display_list.append(rect)
-        # add DrawRect commands for backgrounds
-        # if isinstance(self.node, Element) and self.node.tag == "pre":
+        # bgcolor = self.node.style.get("background-color", "transparent")
+        # if bgcolor != "transparent":
         #     x2, y2 = self.x + self.width, self.y + self.height
-        #     rect = DrawRect(self.x, self.y, x2, y2, "gray")
+        #     rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
         #     display_list.append(rect)
+        # add DrawRect commands for backgrounds
+        if isinstance(self.node, Element) and self.node.tag == "pre":
+            x2, y2 = self.x + self.width, self.y + self.height
+            rect = DrawRect(self.x, self.y, x2, y2, "gray")
+            display_list.append(rect)
         # add DrawText for text objects
         if self.layout_mode(self.node) == "inline":
             for x, y, word, font in self.display_list:
@@ -255,7 +257,7 @@ class BlockLayout:
         for child in self.children:
             child.paint(display_list)
 
-    def construct_words(self, tok: Text):
+    def construct_words(self, tok):
         if self.IN_PRE_TAG:
             # to not ignore whitespace and line breaks, we construct words character by character
             words = []
@@ -294,7 +296,7 @@ class BlockLayout:
         return first_part, second_part
 
     def get_font(self, size, weight, slant):
-        key = (size, weight, slant)
+        key = (self.font_family, size, weight, slant)
         if key not in FONTS:
             font = tkinter.font.Font(family=self.font_family, size=size, weight=weight, slant=slant)
             FONTS[key] = font

@@ -14,6 +14,7 @@ class Text(Token):
     def __str__(self):
         return str(self.text)
 
+
 class Element(Token):
     def __init__(self, tag, attributes, parent):
         self.tag = tag
@@ -26,4 +27,3 @@ class Element(Token):
 
     def __str__(self):
         return "<" + self.tag + ">"
-
