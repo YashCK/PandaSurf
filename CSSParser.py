@@ -52,7 +52,7 @@ class CSSParser:
             except AssertionError:
                 # when we cannot correctly parse a property, value pair
                 # skip to the next semicolon/end of string
-                why = self.ignore_until([";"])
+                why = self.ignore_until([";", "}"])
                 if why == ";":
                     self.literal(";")
                     self.whitespace()

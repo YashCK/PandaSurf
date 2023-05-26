@@ -30,7 +30,10 @@ class Browser:
             self.window,
             width=self.WIDTH,
             height=self.HEIGHT,
+            # bg="mint cream",
             bg="white",
+            # bg="snow2",
+            # bg="gainsboro",
         )
         # request handler
         self.rq = RequestHandler()
@@ -163,7 +166,7 @@ class Browser:
 
     def style(self, node, rules):
         node.style = {}
-        #
+        # inherit font properties
         for prop, default_value in self.INHERITED_PROPERTIES.items():
             if node.parent:
                 node.style[prop] = node.parent.style[prop]
@@ -181,8 +184,9 @@ class Browser:
         if isinstance(node, Element) and "style" in node.attributes:
             pairs = CSSParser(node.attributes["style"]).body()
             for prop, value in pairs.items():
-                node.style[prop] = value
-        #
+                computed_value = self.compute_style(node, property, value)
+                node.style[property] = computed_value
+        # apply the same to children nodes
         for child in node.children:
             self.style(child, rules)
 
@@ -216,6 +220,9 @@ def resolve_url(url, current):
         host, oldpath = hostpath.split("/", 1)
         return scheme + "://" + host + url
     else:
+        scheme, hostpath = current.split("://", 1)
+        if "/" not in hostpath:
+            current = current + "/"
         directory, _ = current.rsplit("/", 1)
         while url.startswith("../"):
             url = url[3:]

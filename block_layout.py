@@ -71,17 +71,17 @@ class BlockLayout:
             self.layout_intermediate()
         else:
             # display and line information
-            self.display_list = []
+            # self.display_list = []
             self.line = []
-            self.center_line = False
+            # self.center_line = False
             # cursor information
             self.cursor_x = 0
             self.cursor_y = 0
             # font information
-            self.font_family = "Didot"
-            self.weight = "normal"
-            self.style = "roman"
-            self.size = font_size
+            # self.font_family = "Didot"
+            # self.weight = "normal"
+            # self.style = "roman"
+            # self.size = font_size
             # go through the tree
             self.recurse(self.node)
             self.flush()
@@ -135,71 +135,14 @@ class BlockLayout:
             if not self.IN_PRE_TAG:
                 self.cursor_x += font.measure(" ")
 
-    def recurse(self, tree):
-        if isinstance(tree, Text):
-            self.text(tree)
+    def recurse(self, node):
+        if isinstance(node, Text):
+            self.text(node)
         else:
-            if tree.tag == "br":
+            if node.tag == "br":
                 self.flush()
-            for child in tree.children:
+            for child in node.children:
                 self.recurse(child)
-
-    def open_tag(self, elem: Element):
-        match elem.tag:
-            case "i":
-                self.style = "italic"
-            case "b":
-                self.weight = "bold"
-            case "small":
-                self.size -= 2
-            case "big":
-                self.size += 4
-            case "p":
-                self.flush()
-                self.cursor_y += self.VSTEP
-            case "br":
-                self.flush()
-            case "h1":
-                if ("class", "title") in elem.attributes.items():
-                    self.center_line = True
-            case "title":
-                self.LAST_LINE_START_POS = (self.cursor_x, self.cursor_y)
-            case "sup":
-                self.size = int(self.size / 2)
-                self.SUPERSCRIPT = True
-            case "sub":
-                self.size = int(self.size / 2)
-            case "pre":
-                self.font_family = "Courier New"
-                self.IN_PRE_TAG = True
-
-    def close_tag(self, elem: Element):
-        match elem.tag:
-            case "i":
-                self.style = "roman"
-            case "b":
-                self.weight = "normal"
-            case "small":
-                self.size += 2
-            case "big":
-                self.size -= 4
-            case "p":
-                self.flush()
-                self.cursor_y += 1.5 * self.VSTEP
-            case "h1":
-                if self.center_line:
-                    self.flush(center_line=True)
-                    self.center_line = False
-            case "title":
-                self.line = []
-                self.cursor_x = self.LAST_LINE_START_POS[0]
-                self.cursor_y = self.LAST_LINE_START_POS[1]
-            case "sup" | "sub":
-                self.size *= 2
-                self.SUPERSCRIPT = False
-            case "pre":
-                self.font_family = "Didot"
-                self.IN_PRE_TAG = False
 
     def flush(self, center_line=False):
         if not self.line:
@@ -218,9 +161,9 @@ class BlockLayout:
         baseline = self.cursor_y + 1.25 * max_ascent
         # place each word relative to the line
         # then add to display list
-        for rel_x, word, font, color in self.line:
-            x = self.x + rel_x
-            y = self.y + baseline - font.metrics("ascent")
+        #-----
+        for x, word, font, color in self.line:
+            y = baseline - font.metrics("ascent")
             # adjust position for superscript words
             if word in self.SUPERSCRIPT_WORDS:
                 y = self.y + self.cursor_y + 0.75 * max_ascent - font.metrics("ascent")
@@ -231,8 +174,24 @@ class BlockLayout:
                 self.display_list.append((new_x, y, word, font, color))
             else:
                 self.display_list.append((x, y, word, font, color))
+
+        #-----
+        # for rel_x, word, font, color in self.line:
+        #     x = self.x + rel_x
+        #     y = self.y + baseline - font.metrics("ascent")
+        #     # adjust position for superscript words
+        #     if word in self.SUPERSCRIPT_WORDS:
+        #         y = self.y + self.cursor_y + 0.75 * max_ascent - font.metrics("ascent")
+        #         self.SUPERSCRIPT_WORDS.remove(word)
+        #     # center text if line should be centered
+        #     if center_line:
+        #         new_x = x + (self.width - line_length) / 2
+        #         self.display_list.append((new_x, y, word, font, color))
+        #     else:
+        #         self.display_list.append((x, y, word, font, color))
         # update the x, y, and line fields
-        self.cursor_x = 0
+        # self.cursor_x = 0
+        self.cursor_x = self.x
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])
         self.cursor_y = baseline + 1.25 * max_descent
@@ -244,18 +203,9 @@ class BlockLayout:
             x2, y2 = self.x + self.width, self.y + self.height
             rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
             display_list.append(rect)
-        # add DrawRect commands for backgrounds
-        # if isinstance(self.node, Element) and self.node.tag == "pre":
-        #     x2, y2 = self.x + self.width, self.y + self.height
-        #     rect = DrawRect(self.x, self.y, x2, y2, "gray")
-        #     display_list.append(rect)
-        #----
+        # Add DrawText for text objects
         for x, y, word, font, color in self.display_list:
             display_list.append(DrawText(self.x + x, self.y + y, word, font, color))
-        # add DrawText for text objects
-        # if self.layout_mode(self.node) == "inline":
-        #     for x, y, word, font in self.display_list:
-        #         display_list.append(DrawText(x, y, word, font))
         # apply the following for the node's children
         for child in self.children:
             child.paint(display_list)
