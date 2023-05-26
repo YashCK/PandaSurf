@@ -29,7 +29,8 @@ class Browser:
         self.canvas = tkinter.Canvas(
             self.window,
             width=self.WIDTH,
-            height=self.HEIGHT
+            height=self.HEIGHT,
+            bg="white",
         )
         # request handler
         self.rq = RequestHandler()
@@ -99,7 +100,7 @@ class Browser:
                 continue
             rules.extend(CSSParser(body).parse())
         # apply style in cascading order
-        style(self.nodes, sorted(rules, key=cascade_priority))
+        self.style(self.nodes, sorted(rules, key=cascade_priority))
         # compute the layout to be displayed in the browser
         self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
         self.display_list = []

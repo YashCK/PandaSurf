@@ -96,8 +96,11 @@ class BlockLayout:
             self.height = self.cursor_y
 
     def text(self, node):
+        # read and store color
+        color = node.style["color"]
         # find font and list of words to use
-        font = self.get_font(self.size, self.weight, self.style)
+        font = self.get_font(node)
+        # font = self.get_font(self.size, self.weight, self.style)
         words = self.construct_words(node)
         # find positions for all the words in the list
         for word in words:
@@ -114,20 +117,20 @@ class BlockLayout:
                     self.flush(self.center_line)
                 else:
                     # add the first word to this line
-                    self.line.append((self.cursor_x, first_word, font))
+                    self.line.append((self.cursor_x, first_word, font, color))
                     self.cursor_x += font.measure(first_word)
                     if not self.IN_PRE_TAG:
                         self.cursor_x += font.measure(" ")
                     self.flush(self.center_line)
                     # add the second word to the next line
-                    self.line.append((self.cursor_x, second_word, font))
+                    self.line.append((self.cursor_x, second_word, font, color))
                     self.cursor_x += font.measure(second_word)
                     if not self.IN_PRE_TAG:
                         self.cursor_x += font.measure(" ")
                     # skip to next iteration
                     continue
             # add to end of the line
-            self.line.append((self.cursor_x, word, font))
+            self.line.append((self.cursor_x, word, font, color))
             self.cursor_x += w
             if not self.IN_PRE_TAG:
                 self.cursor_x += font.measure(" ")
@@ -136,10 +139,10 @@ class BlockLayout:
         if isinstance(tree, Text):
             self.text(tree)
         else:
-            self.open_tag(tree)
+            if tree.tag == "br":
+                self.flush()
             for child in tree.children:
                 self.recurse(child)
-            self.close_tag(tree)
 
     def open_tag(self, elem: Element):
         match elem.tag:
@@ -209,16 +212,13 @@ class BlockLayout:
             last_char_pos = last_word_info[0] + last_word_info[2].measure(last_word_info[1])
             line_length = last_char_pos - first_char_pos
         # compute the metrics to figure out where the line should be
-        metrics = [font.metrics() for x, word, font in self.line]
+        metrics = [font.metrics() for x, word, font, color in self.line]
         # figure out the tallest word
         max_ascent = max([metric["ascent"] for metric in metrics])
         baseline = self.cursor_y + 1.25 * max_ascent
-        # # increase the position of the text if it is superscript text
-        # if self.SUPERSCRIPT:
-        #     baseline = self.cursor_y + 1.75 * max_ascent
         # place each word relative to the line
         # then add to display list
-        for rel_x, word, font in self.line:
+        for rel_x, word, font, color in self.line:
             x = self.x + rel_x
             y = self.y + baseline - font.metrics("ascent")
             # adjust position for superscript words
@@ -228,9 +228,9 @@ class BlockLayout:
             # center text if line should be centered
             if center_line:
                 new_x = x + (self.width - line_length) / 2
-                self.display_list.append((new_x, y, word, font))
+                self.display_list.append((new_x, y, word, font, color))
             else:
-                self.display_list.append((x, y, word, font))
+                self.display_list.append((x, y, word, font, color))
         # update the x, y, and line fields
         self.cursor_x = 0
         self.line = []
@@ -249,10 +249,13 @@ class BlockLayout:
         #     x2, y2 = self.x + self.width, self.y + self.height
         #     rect = DrawRect(self.x, self.y, x2, y2, "gray")
         #     display_list.append(rect)
+        #----
+        for x, y, word, font, color in self.display_list:
+            display_list.append(DrawText(self.x + x, self.y + y, word, font, color))
         # add DrawText for text objects
-        if self.layout_mode(self.node) == "inline":
-            for x, y, word, font in self.display_list:
-                display_list.append(DrawText(x, y, word, font))
+        # if self.layout_mode(self.node) == "inline":
+        #     for x, y, word, font in self.display_list:
+        #         display_list.append(DrawText(x, y, word, font))
         # apply the following for the node's children
         for child in self.children:
             child.paint(display_list)
@@ -295,12 +298,21 @@ class BlockLayout:
                 break
         return first_part, second_part
 
-    def get_font(self, size, weight, slant):
+    def get_cached_font(self, size, weight, slant):
         key = (self.font_family, size, weight, slant)
         if key not in FONTS:
             font = tkinter.font.Font(family=self.font_family, size=size, weight=weight, slant=slant)
             FONTS[key] = font
         return FONTS[key]
+
+    def get_font(self, node):
+        weight = node.style["font-weight"]
+        style = node.style["font-style"]
+        # translate CSS normal to Tk roman
+        if style == "normal": style = "roman"
+        # convert CSS pixels to Tk points
+        size = int(float(node.style["font-size"][:-2]) * .75)
+        return self.get_cached_font(size, weight, style)
 
     def layout_mode(self, node):
         if isinstance(node, Text):
