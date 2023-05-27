@@ -131,6 +131,16 @@ class BlockLayout:
         if node.tag == "h1":
             if ("class", "title") in node.attributes.items():
                 self.center_line = True
+        if node.tag == "nav":
+            if ("id", "toc") in node.attributes.items():
+                toc = Text("Table of Contents", None)
+                toc.style = {"font-weight":"bold",
+                             "color":"black",
+                             "font-family":"Didot",
+                             "font-style":"normal",
+                             "font-size": "150%"}
+                self.text(toc, "False")
+                self.flush()
 
     def flush(self, center_line=False):
         if not self.line:
