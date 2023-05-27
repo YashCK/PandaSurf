@@ -1,7 +1,12 @@
-pre { background-color: gray; }
+pre {
+    in-pre-tag: True;
+    font-family: Courier New;
+    background-color: gray;
+}
 
 a { color: blue; }
 i { font-style: italic; }
 b { font-weight: bold; }
 small { font-size: 90%; }
 big { font-size: 110%; }
+sup { font-size: 115%; }

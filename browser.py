@@ -16,6 +16,8 @@ class Browser:
     SCROLL_STEP = 70
 
     INHERITED_PROPERTIES = {
+        "in-pre-tag": "False",
+        "font-family": "Didot",
         "font-size": "16px",
         "font-style": "normal",
         "font-weight": "normal",
@@ -82,7 +84,7 @@ class Browser:
             if redraw:
                 cmd.execute(self.scroll, self.canvas, self.font_size)
             else:
-                cmd.execute(self.scroll, self.canvas)
+                cmd.execute(self.scroll, self.canvas, self.font_size)
 
     def redraw(self, adjust_text_size=False):
         self.document = DocumentLayout(self.nodes)

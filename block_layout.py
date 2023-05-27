@@ -9,10 +9,6 @@ FONTS = {}
 
 
 class BlockLayout:
-    LAST_LINE_START_POS = (0, 0)
-    SUPERSCRIPT = False
-    SUPERSCRIPT_WORDS = []
-    IN_PRE_TAG = False
     HSTEP = 13
     VSTEP = 18
 
@@ -70,19 +66,9 @@ class BlockLayout:
         if mode == "block":
             self.layout_intermediate()
         else:
-            # display and line information
-            # self.display_list = []
             self.line = []
-            # self.center_line = False
-            # cursor information
             self.cursor_x = 0
             self.cursor_y = 0
-            # font information
-            # self.font_family = "Didot"
-            # self.weight = "normal"
-            # self.style = "roman"
-            # self.size = font_size
-            # go through the tree
             self.recurse(self.node)
             self.flush()
         # recursively call layout on each child
@@ -95,27 +81,23 @@ class BlockLayout:
             # in the case the block is simply a text block
             self.height = self.cursor_y
 
-    def text(self, node):
+    def text(self, node, pre_tag):
         def add_to_line(the_word, word_width):
-            self.line.append((self.cursor_x, word, font, color))
+            self.line.append((self.cursor_x, the_word, font, color))
             self.cursor_x += word_width
-            if not self.IN_PRE_TAG:
+            if not get_pre_tag(pre_tag):
                 self.cursor_x += font.measure(" ")
-        # read and store color
+        # style properties and the words list t use
         color = node.style["color"]
-        # find font and list of words to use
-        font = self.get_font(node)
-        words = self.construct_words(node)
+        font = get_font(node)
+        words = construct_words(node, get_pre_tag(pre_tag))
         # find positions for all the words in the list
         for word in words:
-            # check if word should be superscript
-            if self.SUPERSCRIPT:
-                self.SUPERSCRIPT_WORDS.append(word)
             # Add words to lines
             w = font.measure(word)
             if self.cursor_x + w > self.width:
                 first_word, second_word = self.hyphenate_word(word, font)
-                if first_word == "" or (self.IN_PRE_TAG and word == "\n"):
+                if first_word == "":
                     # no need to hyphenate
                     self.flush(self.center_line)
                 else:
@@ -124,23 +106,37 @@ class BlockLayout:
                     self.flush(self.center_line)
                     add_to_line(second_word, font.measure(second_word))
                     continue
+            elif get_pre_tag(pre_tag) and word == "\n":
+                self.flush()
             # add to end of the line
             add_to_line(word, w)
+        # apply centering to the line
         if self.center_line:
             self.flush(center_line=True)
             self.center_line = False
 
     def recurse(self, node):
         if isinstance(node, Text):
-            self.text(node)
+            if node.text.find("\n") != -1:
+                # print("something:", node.style["in-pre-tag"])
+                pass
+            else:
+                pass
+                # print("texT: ", node.text)
+            self.text(node, node.style["in-pre-tag"])
         else:
-            if node.tag == "br":
-                self.flush()
-            if node.tag == "h1":
-                if ("class", "title") in node.attributes.items():
-                    self.center_line = True
+            self.handle_tags(node)
             for child in node.children:
                 self.recurse(child)
+
+    def handle_tags(self, node):
+        if node.tag == "br":
+            self.flush()
+        if node.tag == "h1":
+            if ("class", "title") in node.attributes.items():
+                self.center_line = True
+        if node.tag == "head":
+            pass
 
     def flush(self, center_line=False):
         if not self.line:
@@ -157,15 +153,9 @@ class BlockLayout:
         # figure out the tallest word
         max_ascent = max([metric["ascent"] for metric in metrics])
         baseline = self.cursor_y + 1.25 * max_ascent
-        # place each word relative to the line
-        # then add to display list
+        # place each word relative to the line, then add to display list
         for x, word, font, color in self.line:
             y = baseline - font.metrics("ascent")
-            # adjust position for superscript words
-            if word in self.SUPERSCRIPT_WORDS:
-                y = self.y + self.cursor_y + 0.75 * max_ascent - font.metrics("ascent")
-                self.SUPERSCRIPT_WORDS.remove(word)
-            # center text if line should be centered
             if center_line:
                 new_x = x + (self.width - line_length) / 2
                 self.display_list.append((new_x, y, word, font, color))
@@ -179,6 +169,9 @@ class BlockLayout:
     def paint(self, display_list):
         # browser can consult element for styling information
         bgcolor = self.node.style.get("background-color", "transparent")
+        # fix for when it encounters rgba and crashes
+        if bgcolor == "rgba":
+            bgcolor = "transparent"
         if bgcolor != "transparent":
             x2, y2 = self.x + self.width, self.y + self.height
             rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
@@ -192,7 +185,7 @@ class BlockLayout:
         if isinstance(self.node, Element) and self.node.tag == "nav":
             if ("class", "links") in self.node.attributes.items():
                 x2, y2 = self.x + self.width, self.y + self.height
-                rect = DrawRect(self.x, self.y, x2, y2, "lightgray")
+                rect = DrawRect(self.x, self.y, x2, y2, "light grey")
                 display_list.append(rect)
         # Add DrawText for text objects
         for x, y, word, font, color in self.display_list:
@@ -200,25 +193,6 @@ class BlockLayout:
         # apply the following for the node's children
         for child in self.children:
             child.paint(display_list)
-
-    def construct_words(self, tok):
-        if self.IN_PRE_TAG:
-            # to not ignore whitespace and line breaks, we construct words character by character
-            words = []
-            w = ''
-            for c in tok.text:
-                if c.isspace():
-                    if w:
-                        words.append(w)
-                    w = ''
-                    words.append(c)
-                else:
-                    w += c
-            if w:
-                words.append(w)
-            return words
-        else:
-            return tok.text.split()
 
     def hyphenate_word(self, word, word_font):
         # find soft hyphen positions
@@ -239,22 +213,6 @@ class BlockLayout:
                 break
         return first_part, second_part
 
-    def get_cached_font(self, size, weight, slant):
-        key = (self.font_family, size, weight, slant)
-        if key not in FONTS:
-            font = tkinter.font.Font(family=self.font_family, size=size, weight=weight, slant=slant)
-            FONTS[key] = font
-        return FONTS[key]
-
-    def get_font(self, node):
-        weight = node.style["font-weight"]
-        style = node.style["font-style"]
-        # translate CSS normal to Tk roman
-        if style == "normal": style = "roman"
-        # convert CSS pixels to Tk points
-        size = int(float(node.style["font-size"][:-2]) * .75)
-        return self.get_cached_font(size, weight, style)
-
     def layout_mode(self, node):
         if isinstance(node, Text):
             return "inline"
@@ -272,3 +230,46 @@ class BlockLayout:
         for thing in self.line:
             print(thing[1] + " ", end="")
         print("")
+
+
+def construct_words(tok, in_pre_tag):
+    if in_pre_tag:
+        # to not ignore whitespace and line breaks, we construct words character by character
+        words = []
+        w = ''
+        for c in tok.text:
+            if c.isspace():
+                if w:
+                    words.append(w)
+                w = ''
+                words.append(c)
+            else:
+                w += c
+        if w:
+            words.append(w)
+        return words
+    else:
+        return tok.text.split()
+
+
+def get_pre_tag(in_pre_tag):
+    return in_pre_tag == "True"
+
+
+def get_font(node):
+    family = node.style["font-family"]
+    weight = node.style["font-weight"]
+    style = node.style["font-style"]
+    # translate CSS normal to Tk roman
+    if style == "normal": style = "roman"
+    # convert CSS pixels to Tk points
+    size = int(float(node.style["font-size"][:-2]) * .75)
+    return get_cached_font(family, size, weight, style)
+
+
+def get_cached_font(family, size, weight, slant):
+    key = (family, size, weight, slant)
+    if key not in FONTS:
+        font = tkinter.font.Font(family=family, size=size, weight=weight, slant=slant)
+        FONTS[key] = font
+    return FONTS[key]
