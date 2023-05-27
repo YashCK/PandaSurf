@@ -5,6 +5,7 @@ import tkinter.font
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from document_layout import DocumentLayout
+from draw import DrawRect
 from header import Header
 from request import RequestHandler
 from token import Element
@@ -86,6 +87,15 @@ class Browser:
                 cmd.execute(self.scroll, self.canvas, self.font_size)
             else:
                 cmd.execute(self.scroll, self.canvas, self.font_size)
+        self.draw_scrollbar()
+
+    def draw_scrollbar(self):
+        max_y = self.document.height - self.HEIGHT
+        if self.HEIGHT < max_y:
+            amount_scrolled = (self.HEIGHT + self.scroll)/max_y - self.HEIGHT/max_y
+            x2, y2 = self.WIDTH - 4, amount_scrolled*0.9*self.HEIGHT + self.HEIGHT/10
+            rect = DrawRect(self.WIDTH - self.HSTEP, amount_scrolled*0.9*self.HEIGHT, x2, y2, "LightBlue3")
+            rect.execute(0, self.canvas)
 
     def redraw(self, adjust_text_size=False):
         self.document = DocumentLayout(self.nodes)

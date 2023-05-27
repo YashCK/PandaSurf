@@ -10,6 +10,8 @@ class DrawText:
     def execute(self, scroll, canvas, alternate_size=None):
         if alternate_size:
             self.font.configure(size=alternate_size)
+        if self.color == "var":
+            self.color = "black"
         canvas.create_text(
             self.left, self.top - scroll,
             text=self.text,
@@ -28,6 +30,8 @@ class DrawRect:
         self.color = color
 
     def execute(self, scroll, canvas, alternate_size=None):
+        if self.color == "var":
+            self.color = "black"
         canvas.create_rectangle(
             self.left, self.top - scroll,
             self.right, self.bottom - scroll,

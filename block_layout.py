@@ -164,8 +164,9 @@ class BlockLayout:
         # browser can consult element for styling information
         bgcolor = self.node.style.get("background-color", "transparent")
         # fix for when it encounters rgba and crashes
-        if bgcolor == "rgba":
+        if bgcolor == "rgba" or bgcolor == "var":
             bgcolor = "transparent"
+        # draw background colors
         if bgcolor != "transparent":
             x2, y2 = self.x + self.width, self.y + self.height
             rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
@@ -263,8 +264,12 @@ def get_font(node):
     family = node.style["font-family"]
     weight = node.style["font-weight"]
     style = node.style["font-style"]
+    # In case of var
+    if weight == "var":
+        weight = "normal"
     # translate CSS normal to Tk roman
-    if style == "normal": style = "roman"
+    if style == "normal":
+        style = "roman"
     # convert CSS pixels to Tk points
     size = int(float(node.style["font-size"][:-2]) * .75)
     return get_cached_font(family, size, weight, style)

@@ -110,7 +110,7 @@ class RequestHandler:
                 max_age_present = False
                 possible_position = headers['cache-control'].find('max-age=')
                 total_substring = 'max-age=0'
-                if possible_position != -1 and headers['cache-control'][possible_position + 9].isdigit():
+                if possible_position != -1 and headers['cache-control'][possible_position + 8].isdigit():
                     total_substring = 'max-age='
                     rest_of_header = headers['cache-control'][possible_position + 8:]
                     for char in rest_of_header:
