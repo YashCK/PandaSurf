@@ -77,6 +77,8 @@ class HTMLParser:
                             text = text[:-4] + '\N{soft hyphen}'
                         elif text[-5:] == '&amp;':
                             text = text[:-5] + '&'
+                        elif text[-6:] == '&quot;':
+                            text = text[:-6] + '\"'
         if not in_tag and text:
             self.add_text(text)
         return self.finish()

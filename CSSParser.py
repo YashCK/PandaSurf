@@ -1,4 +1,4 @@
-from selector import TagSelector, DescendantSelector
+from selector import TagSelector, DescendantSelector, ClassSelector
 
 
 class CSSParser:
@@ -73,10 +73,22 @@ class CSSParser:
         # create selector objects
         out = TagSelector(self.word().lower())
         self.whitespace()
+        # while self.i < len(self.s) and self.s[self.i] != "{":
+        #     tag = self.word()
+        #     descendant = TagSelector(tag.lower())
+        #     out = DescendantSelector(out, descendant)
+        #     self.whitespace()
+        # return out
         while self.i < len(self.s) and self.s[self.i] != "{":
-            tag = self.word()
-            descendant = TagSelector(tag.lower())
-            out = DescendantSelector(out, descendant)
+            if self.s[self.i] == ".":
+                self.i += 1  # Move past the dot character
+                class_name = self.word().lower()
+                class_selector = ClassSelector(class_name)
+                out = DescendantSelector(out, class_selector)
+            else:
+                tag = self.word()
+                descendant = TagSelector(tag.lower())
+                out = DescendantSelector(out, descendant)
             self.whitespace()
         return out
 

@@ -23,3 +23,13 @@ class DescendantSelector:
             if self.ancestor.matches(node.parent): return True
             node = node.parent
         return False
+
+
+class ClassSelector:
+    def __init__(self, cls):
+        self.cls = cls
+        self.priority = 10
+
+    def matches(self, node):
+        if isinstance(node, Element) and "class" in node.attributes.keys():
+            return self.cls == node.attributes["class"]
