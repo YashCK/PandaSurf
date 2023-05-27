@@ -8,7 +8,6 @@ import zlib
 from address import Address
 from cache import Cache
 from header import Header
-from token import Token, Text, Element
 
 
 class RequestHandler:

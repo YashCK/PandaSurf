@@ -7,6 +7,7 @@ class Text(Token):
         self.text = text
         self.children = []
         self.parent = parent
+        self.style = None
 
     def __repr__(self):
         return repr(self.text)

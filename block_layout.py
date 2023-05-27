@@ -96,19 +96,22 @@ class BlockLayout:
             self.height = self.cursor_y
 
     def text(self, node):
+        def add_to_line(the_word, word_width):
+            self.line.append((self.cursor_x, word, font, color))
+            self.cursor_x += word_width
+            if not self.IN_PRE_TAG:
+                self.cursor_x += font.measure(" ")
         # read and store color
         color = node.style["color"]
         # find font and list of words to use
         font = self.get_font(node)
-        # font = self.get_font(self.size, self.weight, self.style)
         words = self.construct_words(node)
         # find positions for all the words in the list
         for word in words:
-            # print("word: ", word, " block pos: ", self.x, " ", self.y)
             # check if word should be superscript
             if self.SUPERSCRIPT:
                 self.SUPERSCRIPT_WORDS.append(word)
-            # Add words to line
+            # Add words to lines
             w = font.measure(word)
             if self.cursor_x + w > self.width:
                 first_word, second_word = self.hyphenate_word(word, font)
@@ -116,24 +119,16 @@ class BlockLayout:
                     # no need to hyphenate
                     self.flush(self.center_line)
                 else:
-                    # add the first word to this line
-                    self.line.append((self.cursor_x, first_word, font, color))
-                    self.cursor_x += font.measure(first_word)
-                    if not self.IN_PRE_TAG:
-                        self.cursor_x += font.measure(" ")
+                    # add the first word to this line, go to next line, add second word to next line
+                    add_to_line(first_word, font.measure(first_word))
                     self.flush(self.center_line)
-                    # add the second word to the next line
-                    self.line.append((self.cursor_x, second_word, font, color))
-                    self.cursor_x += font.measure(second_word)
-                    if not self.IN_PRE_TAG:
-                        self.cursor_x += font.measure(" ")
-                    # skip to next iteration
+                    add_to_line(second_word, font.measure(second_word))
                     continue
             # add to end of the line
-            self.line.append((self.cursor_x, word, font, color))
-            self.cursor_x += w
-            if not self.IN_PRE_TAG:
-                self.cursor_x += font.measure(" ")
+            add_to_line(word, w)
+        if self.center_line:
+            self.flush(center_line=True)
+            self.center_line = False
 
     def recurse(self, node):
         if isinstance(node, Text):
@@ -141,6 +136,9 @@ class BlockLayout:
         else:
             if node.tag == "br":
                 self.flush()
+            if node.tag == "h1":
+                if ("class", "title") in node.attributes.items():
+                    self.center_line = True
             for child in node.children:
                 self.recurse(child)
 
@@ -161,7 +159,6 @@ class BlockLayout:
         baseline = self.cursor_y + 1.25 * max_ascent
         # place each word relative to the line
         # then add to display list
-        #-----
         for x, word, font, color in self.line:
             y = baseline - font.metrics("ascent")
             # adjust position for superscript words
@@ -174,23 +171,6 @@ class BlockLayout:
                 self.display_list.append((new_x, y, word, font, color))
             else:
                 self.display_list.append((x, y, word, font, color))
-
-        #-----
-        # for rel_x, word, font, color in self.line:
-        #     x = self.x + rel_x
-        #     y = self.y + baseline - font.metrics("ascent")
-        #     # adjust position for superscript words
-        #     if word in self.SUPERSCRIPT_WORDS:
-        #         y = self.y + self.cursor_y + 0.75 * max_ascent - font.metrics("ascent")
-        #         self.SUPERSCRIPT_WORDS.remove(word)
-        #     # center text if line should be centered
-        #     if center_line:
-        #         new_x = x + (self.width - line_length) / 2
-        #         self.display_list.append((new_x, y, word, font, color))
-        #     else:
-        #         self.display_list.append((x, y, word, font, color))
-        # update the x, y, and line fields
-        # self.cursor_x = 0
         self.cursor_x = self.x
         self.line = []
         max_descent = max([metric["descent"] for metric in metrics])
@@ -203,6 +183,17 @@ class BlockLayout:
             x2, y2 = self.x + self.width, self.y + self.height
             rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
             display_list.append(rect)
+        # pre blocks
+        # if isinstance(self.node, Element) and self.node.tag == "pre":
+        #     x2, y2 = self.x + self.width, self.y + self.height
+        #     rect = DrawRect(self.x, self.y, x2, y2, "gray")
+        #     display_list.append(rect)
+        # links bar
+        if isinstance(self.node, Element) and self.node.tag == "nav":
+            if ("class", "links") in self.node.attributes.items():
+                x2, y2 = self.x + self.width, self.y + self.height
+                rect = DrawRect(self.x, self.y, x2, y2, "lightgray")
+                display_list.append(rect)
         # Add DrawText for text objects
         for x, y, word, font, color in self.display_list:
             display_list.append(DrawText(self.x + x, self.y + y, word, font, color))
