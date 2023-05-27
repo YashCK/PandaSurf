@@ -85,12 +85,12 @@ class BlockLayout:
         def add_to_line(the_word, word_width):
             self.line.append((self.cursor_x, the_word, font, color))
             self.cursor_x += word_width
-            if not get_pre_tag(pre_tag):
+            if not to_bool(pre_tag):
                 self.cursor_x += font.measure(" ")
         # style properties and the words list t use
         color = node.style["color"]
         font = get_font(node)
-        words = construct_words(node, get_pre_tag(pre_tag))
+        words = construct_words(node, to_bool(pre_tag))
         # find positions for all the words in the list
         for word in words:
             # Add words to lines
@@ -106,7 +106,7 @@ class BlockLayout:
                     self.flush(self.center_line)
                     add_to_line(second_word, font.measure(second_word))
                     continue
-            elif get_pre_tag(pre_tag) and word == "\n":
+            elif to_bool(pre_tag) and word == "\n":
                 self.flush()
             # add to end of the line
             add_to_line(word, w)
@@ -117,13 +117,8 @@ class BlockLayout:
 
     def recurse(self, node):
         if isinstance(node, Text):
-            if node.text.find("\n") != -1:
-                # print("something:", node.style["in-pre-tag"])
-                pass
-            else:
-                pass
-                # print("texT: ", node.text)
-            self.text(node, node.style["in-pre-tag"])
+            if to_bool(node.style["show-contents"]):
+                self.text(node, node.style["in-pre-tag"])
         else:
             self.handle_tags(node)
             for child in node.children:
@@ -135,8 +130,6 @@ class BlockLayout:
         if node.tag == "h1":
             if ("class", "title") in node.attributes.items():
                 self.center_line = True
-        if node.tag == "head":
-            pass
 
     def flush(self, center_line=False):
         if not self.line:
@@ -252,7 +245,7 @@ def construct_words(tok, in_pre_tag):
         return tok.text.split()
 
 
-def get_pre_tag(in_pre_tag):
+def to_bool(in_pre_tag):
     return in_pre_tag == "True"
 
 

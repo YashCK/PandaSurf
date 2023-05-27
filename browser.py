@@ -16,6 +16,7 @@ class Browser:
     SCROLL_STEP = 70
 
     INHERITED_PROPERTIES = {
+        "show-contents": "True",
         "in-pre-tag": "False",
         "font-family": "Didot",
         "font-size": "16px",
