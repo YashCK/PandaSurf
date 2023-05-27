@@ -55,8 +55,10 @@ class BlockLayout:
             previous = inter
 
     def layout(self, font_size):
+        # set up width
+        width = self.node.style['width']
+        self.width = to_pixel(width) if width != "auto" else self.parent.width
         # start attributes relative to parent attributes
-        self.width = self.parent.width
         self.x = self.parent.x
         if self.previous:
             self.y = self.previous.y + self.previous.height
@@ -76,11 +78,16 @@ class BlockLayout:
         for child in self.children:
             child.layout(font_size)
         # height of the block should be the sum of its children heights
-        if mode == "block":
-            self.height = sum([child.height for child in self.children])
+        height = self.node.style['height']
+        if height == "auto":
+            if mode == "block":
+                self.height = sum([child.height for child in self.children])
+            else:
+                # in the case the block is simply a text block
+                self.height = self.cursor_y
         else:
-            # in the case the block is simply a text block
-            self.height = self.cursor_y
+            self.height = to_pixel(height)
+            print("in here")
 
     def text(self, node, pre_tag):
         def add_to_line(the_word, word_width):
@@ -99,7 +106,7 @@ class BlockLayout:
             w = font.measure(word)
             if self.cursor_x + w > self.width:
                 first_word, second_word = self.hyphenate_word(word, font)
-                if first_word == "": # no need to hyphenate
+                if first_word == "":  # no need to hyphenate
                     self.flush(self.center_line)
                 else:
                     # add the first word to this line, go to next line, add second word to next line
@@ -126,7 +133,7 @@ class BlockLayout:
                 self.recurse(child)
 
     def handle_tags(self, node):
-        if node.tag == "br":
+        if node.tag == "br" or node.tag == "p":
             self.flush()
         if node.tag == "h1":
             if ("class", "title") in node.attributes.items():
@@ -134,10 +141,10 @@ class BlockLayout:
         if node.tag == "nav":
             if ("id", "toc") in node.attributes.items():
                 toc = Text("Table of Contents", None)
-                toc.style = {"font-weight":"bold",
-                             "color":"black",
-                             "font-family":"Didot",
-                             "font-style":"normal",
+                toc.style = {"font-weight": "bold",
+                             "color": "black",
+                             "font-family": "Didot",
+                             "font-style": "normal",
                              "font-size": "150%"}
                 self.text(toc, "False")
                 self.flush()
@@ -181,11 +188,6 @@ class BlockLayout:
             x2, y2 = self.x + self.width, self.y + self.height
             rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
             display_list.append(rect)
-        # pre blocks
-        # if isinstance(self.node, Element) and self.node.tag == "pre":
-        #     x2, y2 = self.x + self.width, self.y + self.height
-        #     rect = DrawRect(self.x, self.y, x2, y2, "gray")
-        #     display_list.append(rect)
         # links bar
         if isinstance(self.node, Element) and self.node.tag == "nav":
             if ("class", "links") in self.node.attributes.items():
@@ -194,8 +196,8 @@ class BlockLayout:
                 display_list.append(rect)
         # bullet points
         if isinstance(self.node, Element) and self.node.tag == "li":
-            x2, y2 = self.x + 5, self.y + self.height/2 + 5
-            rect = DrawRect(self.x, self.y + self.height/2, x2, y2, "black")
+            x2, y2 = self.x + 5, self.y + self.height / 2 + 5
+            rect = DrawRect(self.x, self.y + self.height / 2, x2, y2, "black")
             display_list.append(rect)
             self.create_bullet = True
         # Add DrawText for text objects
@@ -268,6 +270,11 @@ def construct_words(tok, in_pre_tag):
 
 def to_bool(in_pre_tag):
     return in_pre_tag == "True"
+
+
+def to_pixel(value):
+    value = value[:-2]
+    return int(value)
 
 
 def get_font(node):

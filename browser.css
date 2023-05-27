@@ -11,3 +11,4 @@ small { font-size: 90%; }
 big { font-size: 110%; }
 sup { font-size: 115%; }
 head { show-contents: False }
+code {font-family: Courier}

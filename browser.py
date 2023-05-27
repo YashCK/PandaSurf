@@ -24,6 +24,8 @@ class Browser:
         "font-style": "normal",
         "font-weight": "normal",
         "color": "black",
+        "width": "auto",
+        "height": "auto",
     }
 
     def __init__(self):
@@ -35,9 +37,9 @@ class Browser:
             width=self.WIDTH,
             height=self.HEIGHT,
             # bg="mint cream",
-            bg="white",
+            # bg="white",
             # bg="snow2",
-            # bg="gainsboro",
+            bg="gainsboro",
         )
         # request handler
         self.rq = RequestHandler()
