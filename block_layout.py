@@ -44,6 +44,7 @@ class BlockLayout:
         self.display_list = []
         self.line = []
         self.center_line = False
+        self.create_bullet = False
 
     def layout_intermediate(self):
         # reads from HTML to tree and writes to Layout tree
@@ -87,18 +88,18 @@ class BlockLayout:
             self.cursor_x += word_width
             if not to_bool(pre_tag):
                 self.cursor_x += font.measure(" ")
+
         # style properties and the words list t use
         color = node.style["color"]
         font = get_font(node)
         words = construct_words(node, to_bool(pre_tag))
         # find positions for all the words in the list
         for word in words:
-            # Add words to lines
+            # add words to lines
             w = font.measure(word)
             if self.cursor_x + w > self.width:
                 first_word, second_word = self.hyphenate_word(word, font)
-                if first_word == "":
-                    # no need to hyphenate
+                if first_word == "": # no need to hyphenate
                     self.flush(self.center_line)
                 else:
                     # add the first word to this line, go to next line, add second word to next line
@@ -180,8 +181,17 @@ class BlockLayout:
                 x2, y2 = self.x + self.width, self.y + self.height
                 rect = DrawRect(self.x, self.y, x2, y2, "light grey")
                 display_list.append(rect)
+        # bullet points
+        if isinstance(self.node, Element) and self.node.tag == "li":
+            x2, y2 = self.x + 5, self.y + self.height/2 + 5
+            rect = DrawRect(self.x, self.y + self.height/2, x2, y2, "black")
+            display_list.append(rect)
+            self.create_bullet = True
         # Add DrawText for text objects
         for x, y, word, font, color in self.display_list:
+            if self.create_bullet:
+                self.x += 5 + font.measure(" ")
+                self.create_bullet = False
             display_list.append(DrawText(self.x + x, self.y + y, word, font, color))
         # apply the following for the node's children
         for child in self.children:
