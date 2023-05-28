@@ -25,18 +25,7 @@ class DescendantSelector:
             node = node.parent
             pos -= 1
         return False
-        # for base_selector in self.base_selectors:
-        #     if not base_selector.matches(node):
-        #         return False
-        #     node = node.parent
-        # return True
-
-        # for base_selector in reversed(self.base_selectors):
-        #     if not base_selector.matches(node):
-        #         return False
-        #     node = node.parent
-        # return True
-
+    
 
 class ClassSelector:
     def __init__(self, cls):

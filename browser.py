@@ -4,7 +4,7 @@ import tkinter.font
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
-from document_layout import DocumentLayout
+from Layouts.document_layout import DocumentLayout
 from draw import DrawRect
 from header import Header
 from request import RequestHandler, resolve_url

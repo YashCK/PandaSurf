@@ -1,4 +1,4 @@
-from block_layout import BlockLayout
+from Layouts.block_layout import BlockLayout
 from request import RequestHandler, resolve_url
 
 
