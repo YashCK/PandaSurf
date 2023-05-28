@@ -22,6 +22,7 @@ class Element(Token):
         self.attributes = attributes
         self.children = []
         self.parent = parent
+        self.style = None
 
     def __repr__(self):
         return "<" + self.tag + ">"

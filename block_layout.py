@@ -12,15 +12,6 @@ class BlockLayout:
     HSTEP = 13
     VSTEP = 18
 
-    BLOCK_ELEMENTS = [
-        "html", "body", "article", "section", "nav", "aside",
-        "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
-        "footer", "address", "p", "hr", "pre", "blockquote",
-        "ol", "ul", "menu", "li", "dl", "dt", "dd", "figure",
-        "figcaption", "main", "div", "table", "form", "fieldset",
-        "legend", "details", "summary"
-    ]
-
     def __init__(self, node, parent, previous):
         self.node = node
         self.parent = parent
@@ -56,8 +47,8 @@ class BlockLayout:
 
     def layout(self, font_size):
         # set up width
-        width = self.node.style['width']
-        self.width = to_pixel(width) if width != "auto" else self.parent.width
+        width = self.node.style.get('width')
+        self.width = to_pixel(width) if (width != "auto" and width is not None) else self.parent.width
         # start attributes relative to parent attributes
         self.x = self.parent.x
         if self.previous:
@@ -65,7 +56,7 @@ class BlockLayout:
         else:
             self.y = self.parent.y
         # layout block depending on its type
-        mode = self.layout_mode(self.node)
+        mode = layout_mode(self.node)
         if mode == "block":
             self.layout_intermediate()
         else:
@@ -78,8 +69,8 @@ class BlockLayout:
         for child in self.children:
             child.layout(font_size)
         # height of the block should be the sum of its children heights
-        height = self.node.style['height']
-        if height == "auto":
+        height = self.node.style.get('height')
+        if height == "auto" or height is None:
             if mode == "block":
                 self.height = sum([child.height for child in self.children])
             else:
@@ -229,23 +220,23 @@ class BlockLayout:
                 break
         return first_part, second_part
 
-    def layout_mode(self, node):
-        if isinstance(node, Text):
-            return "inline"
-        elif node.children:
-            if any([isinstance(child, Element) and child.tag in
-                    self.BLOCK_ELEMENTS for child in node.children]):
-                return "block"
-            else:
-                return "inline"
-        else:
-            return "block"
-
     def print_line(self):
         print("the line: ")
         for thing in self.line:
             print(thing[1] + " ", end="")
         print("")
+
+
+def layout_mode(node):
+    if isinstance(node, Text):
+        return "inline"
+    elif node.children:
+        for child in node.children:
+            if isinstance(child, Element) and child.style.get("display") == "block":
+                return "block"
+        return "inline"
+    else:
+        return "block"
 
 
 def construct_words(tok, in_pre_tag):

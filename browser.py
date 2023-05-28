@@ -24,8 +24,6 @@ class Browser:
         "font-style": "normal",
         "font-weight": "normal",
         "color": "black",
-        "width": "auto",
-        "height": "auto",
     }
 
     def __init__(self):
@@ -190,7 +188,8 @@ class Browser:
         # loop over all elements and all rules in order to add the property/value pairs
         # to the element's style information
         for selector, body in rules:
-            if not selector.matches(node): continue
+            if not selector.matches(node):
+                continue
             for prop, value in body.items():
                 computed_value = self.compute_style(node, prop, value)
                 if not computed_value: continue
@@ -199,8 +198,8 @@ class Browser:
         if isinstance(node, Element) and "style" in node.attributes:
             pairs = CSSParser(node.attributes["style"]).body()
             for prop, value in pairs.items():
-                computed_value = self.compute_style(node, property, value)
-                node.style[property] = computed_value
+                computed_value = self.compute_style(node, prop, value)
+                node.style[prop] = computed_value
         # apply the same to children nodes
         for child in node.children:
             self.style(child, rules)
