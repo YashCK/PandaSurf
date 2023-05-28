@@ -12,11 +12,6 @@ class TagSelector:
 
 
 class DescendantSelector:
-    # def __init__(self, ancestor, descendant):
-    #     self.ancestor = ancestor
-    #     self.descendant = descendant
-    #     self.priority = ancestor.priority + descendant.priority
-
     def __init__(self, base_selectors):
         self.base_selectors = base_selectors
         self.priority = sum(selector.priority for selector in base_selectors)
@@ -30,6 +25,17 @@ class DescendantSelector:
             node = node.parent
             pos -= 1
         return False
+        # for base_selector in self.base_selectors:
+        #     if not base_selector.matches(node):
+        #         return False
+        #     node = node.parent
+        # return True
+
+        # for base_selector in reversed(self.base_selectors):
+        #     if not base_selector.matches(node):
+        #         return False
+        #     node = node.parent
+        # return True
 
 
 class ClassSelector:

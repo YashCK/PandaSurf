@@ -13,8 +13,8 @@ class DrawText:
     def execute(self, scroll, canvas, alternate_size=None):
         if alternate_size:
             self.font.configure(size=alternate_size)
-        # if not catch_color_errors(self.color):
-        #     self.color = "black"
+        if self.color == "var":
+            self.color = "black"
         canvas.create_text(
             self.left, self.top - scroll,
             text=self.text,

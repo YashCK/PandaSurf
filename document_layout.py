@@ -32,13 +32,13 @@ class DocumentLayout:
         self.y = self.VSTEP
         child.layout(font_size)
         self.height = child.height + 2 * self.VSTEP
-        self.style_sheets = child.style_sheet
-        rq = RequestHandler()
-        with open('external.css', 'w') as file:
-            for sheet in self.style_sheets:
-                _, body = rq.request(resolve_url(sheet, total_url))
-                file.write(body)
-                file.write("\n")
+        # self.style_sheets = child.style_sheet
+        # rq = RequestHandler()
+        # with open('external.css', 'w') as file:
+        #     for sheet in self.style_sheets:
+        #         _, body = rq.request(resolve_url(sheet, total_url))
+        #         file.write(body)
+        #         file.write("\n")
 
     def paint(self, display_list):
         self.children[0].paint(display_list)

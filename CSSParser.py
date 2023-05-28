@@ -71,10 +71,26 @@ class CSSParser:
 
     def selector(self):
         # create selector objects
-        base_selectors = []
+        # base_selectors = []
+        # out = TagSelector(self.word().lower())
+        # self.whitespace()
+        # while self.i < len(self.s) and self.s[self.i] != "{":
+        #     if self.s[self.i] == ".":
+        #         self.i += 1  # Move past the dot character
+        #         class_name = self.word().lower()
+        #         class_selector = ClassSelector(class_name)
+        #         base_selectors.append(class_selector)
+        #     else:
+        #         tag = self.word()
+        #         descendant = TagSelector(tag.lower())
+        #         base_selectors.append(descendant)
+        #     out = DescendantSelector(base_selectors)
+        #     self.whitespace()
+        # return out
         out = TagSelector(self.word().lower())
         self.whitespace()
         while self.i < len(self.s) and self.s[self.i] != "{":
+            base_selectors = [out]
             if self.s[self.i] == ".":
                 self.i += 1  # Move past the dot character
                 class_name = self.word().lower()
