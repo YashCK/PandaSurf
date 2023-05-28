@@ -6,8 +6,8 @@ from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from Layouts.document_layout import DocumentLayout
 from draw import DrawRect
-from header import Header
-from request import RequestHandler, resolve_url
+from Requests.header import Header
+from Requests.request import RequestHandler, resolve_url
 from token import Element
 
 

@@ -5,9 +5,9 @@ import codecs
 import time
 import zlib
 
-from address import Address
-from cache import Cache
-from header import Header
+from Requests.address import Address
+from Requests.cache import Cache
+from Requests.header import Header
 
 
 class RequestHandler:

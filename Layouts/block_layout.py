@@ -3,7 +3,6 @@
 import tkinter
 
 from draw import DrawText, DrawRect
-from request import RequestHandler
 from token import Text, Element
 
 FONTS = {}

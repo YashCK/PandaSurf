@@ -1,6 +1,6 @@
 import time
 
-from address import Address
+from Requests.address import Address
 
 
 class Cache:
