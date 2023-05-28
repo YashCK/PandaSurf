@@ -2,6 +2,8 @@
 # vertically one after another
 import tkinter
 
+from Layouts.line_layout import LineLayout
+from Layouts.text_layout import TextLayout
 from draw import DrawText, DrawRect
 from token import Text, Element
 
@@ -37,6 +39,9 @@ class BlockLayout:
         self.center_line = False
         self.create_bullet = False
         self.style_sheet = []
+        # word info
+        self.previous_word = None
+        self.in_bullet = False
 
     def layout_intermediate(self):
         # reads from HTML to tree and writes to Layout tree
@@ -61,35 +66,35 @@ class BlockLayout:
         if mode == "block":
             self.layout_intermediate()
         else:
-            self.line = []
-            self.cursor_x = 0
-            self.cursor_y = 0
+            self.new_line()
             self.recurse(self.node)
-            self.flush()
         # recursively call layout on each child
         for child in self.children:
             child.layout(font_size)
-            self.style_sheet += child.style_sheet
-        # height of the block should be the sum of its children heights
+            # self.style_sheet += child.style_sheet
         height = self.node.style.get('height')
         if height == "auto" or height is None:
-            if mode == "block":
-                self.height = sum([child.height for child in self.children])
-            else:
-                # in the case the block is simply a text block
-                self.height = self.cursor_y
+            # height of the block should be the sum of its children heights
+            self.height = sum([child.height for child in self.children])
         else:
+            # set height to dimension specified by container
             self.height = to_pixel(height)
 
     def text(self, node, pre_tag):
         def add_to_line(the_word, word_width):
-            self.line.append((self.cursor_x, the_word, font, color))
+            # self.line.append((self.cursor_x, the_word, font, color))
+            line = self.children[-1]
+            text = TextLayout(node, word, line, self.previous_word)
+            line.children.append(text)
+            self.previous_word = text
             self.cursor_x += word_width
             if not to_bool(pre_tag):
                 self.cursor_x += font.measure(" ")
-
+        # apply centering to the line
+        if self.center_line:
+            self.new_line(center_line=True)
+            self.center_line = False
         # style properties and the words list t use
-        color = node.style["color"]
         font = get_font(node)
         words = construct_words(node, to_bool(pre_tag))
         # find positions for all the words in the list
@@ -99,21 +104,24 @@ class BlockLayout:
             if self.cursor_x + w > self.width:
                 first_word, second_word = self.hyphenate_word(word, font)
                 if first_word == "":  # no need to hyphenate
-                    self.flush(self.center_line)
+                    self.new_line(self.center_line)
                 else:
                     # add the first word to this line, go to next line, add second word to next line
                     add_to_line(first_word, font.measure(first_word))
-                    self.flush(self.center_line)
+                    self.new_line(self.center_line)
                     add_to_line(second_word, font.measure(second_word))
                     continue
             elif to_bool(pre_tag) and word == "\n":
-                self.flush()
+                self.new_line()
             # add to end of the line
             add_to_line(word, w)
-        # apply centering to the line
-        if self.center_line:
-            self.flush(center_line=True)
-            self.center_line = False
+
+    def new_line(self, center_line=False):
+        self.previous_word = None
+        self.cursor_x = 0
+        last_line = self.children[-1] if self.children else None
+        new_line = LineLayout(self.node, self, last_line, center_line)
+        self.children.append(new_line)
 
     def recurse(self, node):
         if isinstance(node, Text):
@@ -126,7 +134,7 @@ class BlockLayout:
 
     def handle_tags(self, node):
         if node.tag == "br" or node.tag == "p":
-            self.flush()
+            self.new_line()
         if node.tag == "h1":
             if ("class", "title") in node.attributes.items():
                 self.center_line = True
@@ -139,10 +147,12 @@ class BlockLayout:
                              "font-style": "normal",
                              "font-size": "150%"}
                 self.text(toc, "False")
-                self.flush()
-        if node.tag == "link":
-            if ("rel", "stylesheet") in node.attributes.items():
-                self.style_sheet.append(node.attributes["href"])
+                self.new_line()
+        if node.tag == "li":
+            self.in_bullet = True
+        # if node.tag == "link":
+        #     if ("rel", "stylesheet") in node.attributes.items():
+        #         self.style_sheet.append(node.attributes["href"])
 
     def flush(self, center_line=False):
         if not self.line:
@@ -195,12 +205,6 @@ class BlockLayout:
             rect = DrawRect(self.x, self.y + self.height / 2, x2, y2, "black")
             display_list.append(rect)
             self.create_bullet = True
-        # Add DrawText for text objects
-        for x, y, word, font, color in self.display_list:
-            if self.create_bullet:
-                self.x += 5 + font.measure(" ")
-                self.create_bullet = False
-            display_list.append(DrawText(self.x + x, self.y + y, word, font, color))
         # apply the following for the node's children
         for child in self.children:
             child.paint(display_list)
