@@ -7,7 +7,7 @@ from HTMLParser import HTMLParser
 from document_layout import DocumentLayout
 from draw import DrawRect
 from header import Header
-from request import RequestHandler
+from request import RequestHandler, resolve_url
 from token import Element
 
 
@@ -70,8 +70,11 @@ class Browser:
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
             self.current_url = url
-            # Begin layout tree
             self.nodes = HTMLParser(body).parse()
+            # self.form_doc_layout()
+            # if os.path.getsize("external.css") != 0:
+            #     with open("external.css") as f:
+            #         self.default_style_sheet = CSSParser(f.read()).parse()
             self.redraw()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
@@ -92,12 +95,12 @@ class Browser:
     def draw_scrollbar(self):
         max_y = self.document.height - self.HEIGHT
         if self.HEIGHT < max_y:
-            amount_scrolled = (self.HEIGHT + self.scroll)/max_y - self.HEIGHT/max_y
-            x2, y2 = self.WIDTH - 4, amount_scrolled*0.9*self.HEIGHT + self.HEIGHT/10
-            rect = DrawRect(self.WIDTH - self.HSTEP, amount_scrolled*0.9*self.HEIGHT, x2, y2, "LightBlue3")
+            amount_scrolled = (self.HEIGHT + self.scroll) / max_y - self.HEIGHT / max_y
+            x2, y2 = self.WIDTH - 4, amount_scrolled * 0.9 * self.HEIGHT + self.HEIGHT / 10
+            rect = DrawRect(self.WIDTH - self.HSTEP, amount_scrolled * 0.9 * self.HEIGHT, x2, y2, "LightBlue3")
             rect.execute(0, self.canvas)
 
-    def redraw(self, adjust_text_size=False):
+    def form_doc_layout(self):
         self.document = DocumentLayout(self.nodes)
         rules = self.default_style_sheet.copy()
         # grab the URL of each linked style sheet
@@ -118,7 +121,10 @@ class Browser:
         # apply style in cascading order
         self.style(self.nodes, sorted(rules, key=cascade_priority))
         # compute the layout to be displayed in the browser
-        self.document.layout(self.WIDTH, self.HEIGHT, self.font_size)
+        self.document.layout(self.WIDTH, self.HEIGHT, self.font_size, self.current_url)
+
+    def redraw(self, adjust_text_size=False):
+        self.form_doc_layout()
         self.display_list = []
         self.document.paint(self.display_list)
         self.draw(adjust_text_size)
@@ -223,26 +229,6 @@ class Browser:
                 return None
         else:
             return value
-
-
-def resolve_url(url, current):
-    # convert host-relative/path-relative URLs to full URLs
-    if "://" in url:
-        return url
-    elif url.startswith("/"):
-        scheme, hostpath = current.split("://", 1)
-        host, oldpath = hostpath.split("/", 1)
-        return scheme + "://" + host + url
-    else:
-        scheme, hostpath = current.split("://", 1)
-        if "/" not in hostpath:
-            current = current + "/"
-        directory, _ = current.rsplit("/", 1)
-        while url.startswith("../"):
-            url = url[3:]
-            if directory.count("/") == 2: continue
-            directory, _ = directory.rsplit("/", 1)
-        return directory + "/" + url
 
 
 def tree_to_list(tree, array):

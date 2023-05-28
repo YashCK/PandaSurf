@@ -231,6 +231,26 @@ class RequestHandler:
                 return url_headers, new_html_body
 
 
+def resolve_url(url, current):
+    # convert host-relative/path-relative URLs to full URLs
+    if "://" in url:
+        return url
+    elif url.startswith("/"):
+        scheme, hostpath = current.split("://", 1)
+        host, oldpath = hostpath.split("/", 1)
+        return scheme + "://" + host + url
+    else:
+        scheme, hostpath = current.split("://", 1)
+        if "/" not in hostpath:
+            current = current + "/"
+        directory, _ = current.rsplit("/", 1)
+        while url.startswith("../"):
+            url = url[3:]
+            if directory.count("/") == 2: continue
+            directory, _ = directory.rsplit("/", 1)
+        return directory + "/" + url
+
+
 def convert_source_to_html(body):
     new_body = ""
     last_br_tag_closed = True

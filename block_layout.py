@@ -3,6 +3,7 @@
 import tkinter
 
 from draw import DrawText, DrawRect
+from request import RequestHandler
 from token import Text, Element
 
 FONTS = {}
@@ -36,6 +37,7 @@ class BlockLayout:
         self.line = []
         self.center_line = False
         self.create_bullet = False
+        self.style_sheet = []
 
     def layout_intermediate(self):
         # reads from HTML to tree and writes to Layout tree
@@ -68,6 +70,7 @@ class BlockLayout:
         # recursively call layout on each child
         for child in self.children:
             child.layout(font_size)
+            self.style_sheet += child.style_sheet
         # height of the block should be the sum of its children heights
         height = self.node.style.get('height')
         if height == "auto" or height is None:
@@ -78,7 +81,6 @@ class BlockLayout:
                 self.height = self.cursor_y
         else:
             self.height = to_pixel(height)
-            print("in here")
 
     def text(self, node, pre_tag):
         def add_to_line(the_word, word_width):
@@ -139,6 +141,9 @@ class BlockLayout:
                              "font-size": "150%"}
                 self.text(toc, "False")
                 self.flush()
+        if node.tag == "link":
+            if ("rel", "stylesheet") in node.attributes.items():
+                self.style_sheet.append(node.attributes["href"])
 
     def flush(self, center_line=False):
         if not self.line:
@@ -278,9 +283,27 @@ def get_font(node):
     # translate CSS normal to Tk roman
     if style == "normal":
         style = "roman"
+    # manage inherited properties
+    # find_inherited_property(node, "color", "black")
+    # find_inherited_property(node, "font-family", "Didot")
+    # find_inherited_property(node, "font-size", 16)
+    # find_inherited_property(node, "font-style", "roman")
+    # find_inherited_property(node, "font-weight", "normal")
     # convert CSS pixels to Tk points
     size = int(float(node.style["font-size"][:-2]) * .75)
     return get_cached_font(family, size, weight, style)
+
+
+def find_inherited_property(node, prop, default_val):
+    if node.style[prop] == "inherit":
+        new_prop = default_val
+        while node.parent:
+            node_prop = node.style["color"]
+            if node_prop != "inherit":
+                new_prop = node_prop
+                break
+            node = node.parent
+        node.style[prop] = new_prop
 
 
 def get_cached_font(family, size, weight, slant):

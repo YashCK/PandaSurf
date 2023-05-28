@@ -1,4 +1,5 @@
 from block_layout import BlockLayout
+from request import RequestHandler, resolve_url
 
 
 # Acts as the root of Block Layout
@@ -19,9 +20,10 @@ class DocumentLayout:
         self.x = None
         self.y = None
         self.height = None
+        self.style_sheets = []
 
     # create the child layout objects, and then recursively their layout methods
-    def layout(self, window_width, window_height, font_size):
+    def layout(self, window_width, window_height, font_size, total_url):
         child = BlockLayout(self.node, self, None)
         self.children.append(child)
         # set attributes such that there is padding around content
@@ -30,6 +32,13 @@ class DocumentLayout:
         self.y = self.VSTEP
         child.layout(font_size)
         self.height = child.height + 2 * self.VSTEP
+        self.style_sheets = child.style_sheet
+        rq = RequestHandler()
+        with open('external.css', 'w') as file:
+            for sheet in self.style_sheets:
+                _, body = rq.request(resolve_url(sheet, total_url))
+                file.write(body)
+                file.write("\n")
 
     def paint(self, display_list):
         self.children[0].paint(display_list)

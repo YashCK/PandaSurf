@@ -31,6 +31,7 @@ class DescendantSelector:
             pos -= 1
         return False
 
+
 class ClassSelector:
     def __init__(self, cls):
         self.cls = cls

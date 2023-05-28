@@ -1,3 +1,6 @@
+import tkinter
+
+
 class DrawText:
     def __init__(self, x1, y1, text, font, color):
         self.top = y1
@@ -10,8 +13,8 @@ class DrawText:
     def execute(self, scroll, canvas, alternate_size=None):
         if alternate_size:
             self.font.configure(size=alternate_size)
-        if self.color == "var":
-            self.color = "black"
+        # if not catch_color_errors(self.color):
+        #     self.color = "black"
         canvas.create_text(
             self.left, self.top - scroll,
             text=self.text,
@@ -30,11 +33,17 @@ class DrawRect:
         self.color = color
 
     def execute(self, scroll, canvas, alternate_size=None):
-        if self.color == "var":
-            self.color = "black"
         canvas.create_rectangle(
             self.left, self.top - scroll,
             self.right, self.bottom - scroll,
             width=0,
             fill=self.color,
         )
+
+
+def catch_color_errors(color):
+    try:
+        tkinter.font.nametofont(color)
+        return True
+    except tkinter.TclError:
+        return False
