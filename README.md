@@ -1,10 +1,5 @@
 
 <h1 align="center">
-  <!--
-  <br>
-  <a href="http://www.amitmerchant.com/electron-markdownify"><img src="https://raw.githubusercontent.com/amitmerchant1990/electron-markdownify/master/app/img/markdownify.png" alt="Markdownify" width="200"></a>
-  <br>
-   --> 
   PandaSurf
   <br>
 </h1>
@@ -21,10 +16,8 @@
 
 <!-- Online Diff Eq Notes -->
 
-### Ex: This is what appears when you search this website up:
-<img width="622" alt="Screen Shot 2023-05-25 at 11 29 55 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/7b1f0a59-d7fe-49e2-8f5d-cfcafed76c25">
-
-<img width="1286" alt="Screen Shot 2023-05-25 at 11 26 34 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/0c071512-cc38-4bd2-91b8-8787824591fa">
+### Ex: This is how you can use the browser
+[![PandaSurf Demo](VideoDisplay.png)](https://www.youtube.com/watch?v=7CqXEiQak7o)
 
 ## Key Features
 
@@ -89,19 +82,3 @@ Nothing currently
 ## License
 
 IDK
-
-## Alternate Examples
-
-<!-- View Source Missing Semester -->
-
-### View-Source Scheme
-
-<img width="623" alt="Screen Shot 2023-05-25 at 11 29 36 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/79fa85df-aba4-4c91-9872-058ac1ff34f8">
-
-<img width="1167" alt="Screen Shot 2023-05-25 at 11 27 51 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/3b9d9f76-ba9f-45a7-9855-eab920b467bb">
-
-<img width="1168" alt="Screen Shot 2023-05-25 at 11 28 12 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/3e380989-1fa6-40f3-bb2a-df753eedf940">
-
-### Another HTTPS Scheme
-
-<img width="1002" alt="Screen Shot 2023-05-25 at 11 43 53 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/17574042-5c74-42f6-8bb3-eaf798035b76">
