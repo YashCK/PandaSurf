@@ -16,6 +16,7 @@ class Tab:
     WIDTH, HEIGHT = 1000, 800
     HSTEP, VSTEP = 13, 18
     SCROLL_STEP = 70
+    CHROME_PX = 80
 
     def __init__(self):
         self.rq = RequestHandler()
@@ -25,6 +26,7 @@ class Tab:
         self.display_list = []
         self.font_delta = 0
         self.scroll = 0
+        self.history = []
         # store browser's style sheet
         with open("browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
@@ -38,6 +40,7 @@ class Tab:
             header_list = [user_agent_header, accept_encoding_header]
             headers, body = self.rq.request(url, header_list)
             self.url = url
+            self.history.append(url)
             self.nodes = HTMLParser(body).parse()
             # self.form_doc_layout()
             # if os.path.getsize("external.css") != 0:
@@ -55,7 +58,7 @@ class Tab:
                 continue
             if cmd.bottom < self.scroll:
                 continue
-            cmd.execute(self.scroll, canvas)
+            cmd.execute(self.scroll - self.CHROME_PX, canvas)
         self.draw_scrollbar(canvas)
 
     def draw_scrollbar(self, canvas):
@@ -144,8 +147,8 @@ class Tab:
                     self.reload()
 
     def mouse_scrolldown(self):
-        max_y = self.document.height - self.HEIGHT
-        self.scroll = min(self.scroll + self.SCROLL_STEP / 3, max_y)
+        max_y = self.document.height - (self.HEIGHT - self.CHROME_PX)
+        self.scroll = min(self.scroll + self.SCROLL_STEP/3, max_y)
 
     def mouse_scrollup(self):
         if self.scroll > 0:
@@ -155,7 +158,7 @@ class Tab:
                 self.scroll -= self.SCROLL_STEP / 3
 
     def scrolldown(self):
-        max_y = self.document.height - self.HEIGHT
+        max_y = self.document.height - (self.HEIGHT - self.CHROME_PX)
         self.scroll = min(self.scroll + self.SCROLL_STEP, max_y)
 
     def scrollup(self):
@@ -164,6 +167,12 @@ class Tab:
                 self.scroll = 0
             else:
                 self.scroll -= self.SCROLL_STEP
+
+    def go_back(self):
+        if len(self.history) > 1:
+            self.history.pop()
+            back = self.history.pop()
+            self.load(back)
 
 
 def cascade_priority(rule):
