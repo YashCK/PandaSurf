@@ -23,15 +23,24 @@
 
 Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 
+- When a URL is entered, it parses the HTML/CSS from the HTTP response, and displays the webpage.
+- You can scroll up/down and zoom in/out(font increases/decreases in size)
+- Clicking on a hyperlink, takes you to the URL clicked on
+- You can open multiple tabs to search multiple websites, and also go back in history for any one
+- Allows for searching for links by typing in the address bar
+- Browser can be adjusted in size
+
 * URL Parsing (HTTP / HTTPS) \[https://.....]
   - HTML Parser
     - Goes through the source code and constructs the DOM tree of tags and text
     - Is not confused my html attributes
     - Fixes any malformed html (deals with html, head, body as implicit tags)
     - Adjust text based on tag (\<b> to bold, \<i> to italicize, \<small>, \<big>, etc...)
+    - Supports special characters &lt;, \&gt;, &amp;, $shy;, "&quot;
   - Layout Engine
     - A tree based structure used to model a page's layout tree
     - Each node in the tree corresponds to a layout object (Text/Heading/Section of Page) 
+      - Blocks/Sections, Lines, Words, and the Entire Documents all correspond to a Layout object
     - Compute size and position of each object
     - Allows to render backgrounds
   - CSS Parser
@@ -39,14 +48,11 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
     - Implemented cascading and inheritance
     - Support different font properties
       - color, font-weight, font-style, and font-size 
-    - Support tag selectors and descendent selectors
+    - Support tag selectors, descendent selectors, class selectors
     - Added support for both style attributes and linked CSS files;
-  - Displays text in the body of the HTTP Response (including special characters &lt;, \&gt;)
   - Supports Content-Encoding, Transfer-Encoding, Cache-Control Headers
   - Addresses URLs which are redirects
   - Caches URLs and fetches/deletes resources depending on if they are fresh 
-  - Allow for scrolling
-  - Zooming In/Out
 
 * File \[file:///.....]
   - Primarily for Text Files
