@@ -242,6 +242,8 @@ def resolve_url(url, current):
         scheme, hostpath = current.split("://", 1)
         host, oldpath = hostpath.split("/", 1)
         return scheme + "://" + host + url
+    elif url.startswith("#"):
+        return current.split("#")[0] + url
     else:
         scheme, hostpath = current.split("://", 1)
         if "/" not in hostpath:

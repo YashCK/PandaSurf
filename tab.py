@@ -115,15 +115,33 @@ class Tab:
         if not objs:
             return
         elt = objs[-1].node
+        go_to_location = False
+        id_to_find = None
         # climb html tree to find element
         while elt:
             if isinstance(elt, Text):
                 pass
             elif elt.tag == "a" and "href" in elt.attributes:
-                # extract url and load it
-                url = resolve_url(elt.attributes["href"], self.url)
-                return self.load(url)
+                if elt.attributes["href"].startswith("#"):
+                    word_to_find = elt.attributes["href"]
+                    self.url = resolve_url(word_to_find, self.url)
+                    loc = self.find_location(elt.attributes.get("href"))
+                    if loc is not None:
+                        self.scroll = loc[1]
+                else:
+                    # extract url and load it
+                    url = resolve_url(elt.attributes["href"], self.url)
+                    return self.load(url)
             elt = elt.parent
+
+    def find_location(self, identify):
+        identify = identify[1:]
+        last_x, last_y = None, None
+        for obj in tree_to_list(self.document, []):
+            if isinstance(obj.node, Element) and "id" in obj.node.attributes:
+                if obj.node.attributes["id"] == identify:
+                    last_x, last_y = obj.x, obj.y
+        return last_x, last_y
 
     def on_mouse_wheel(self, delta):
         if sys.platform.startswith('win'):
