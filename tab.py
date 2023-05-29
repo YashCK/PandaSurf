@@ -27,6 +27,7 @@ class Tab:
         self.font_delta = 0
         self.scroll = 0
         self.history = []
+        self.future = []
         # store browser's style sheet
         with open("browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
@@ -170,9 +171,15 @@ class Tab:
 
     def go_back(self):
         if len(self.history) > 1:
+            self.future.append(self.url)
             self.history.pop()
             back = self.history.pop()
             self.load(back)
+
+    def go_forward(self):
+        if len(self.future) > 1:
+            ahead = self.future.pop()
+            self.load(ahead)
 
 
 def cascade_priority(rule):

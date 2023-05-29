@@ -78,13 +78,16 @@ class RequestHandler:
                 headers[header.lower()] = value.strip()
             # check if it is a redirect
             if is_redirect:
-                new_url = headers['location']
-                s.close()
-                if new_url.startswith('/'):
-                    new_url = host + new_url
-                    return parse_url(new_url)
+                new_url = headers.get('location')
+                if new_url is not None:
+                    s.close()
+                    if new_url.startswith('/'):
+                        new_url = host + new_url
+                        return parse_url(new_url)
+                    else:
+                        return self.request(new_url)
                 else:
-                    return self.request(new_url)
+                    raise ValueError
             # check for transfer encoding
             if 'transfer-encoding' in headers and headers['transfer-encoding'] == 'chunked':
                 chunks = []
