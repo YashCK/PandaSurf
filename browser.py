@@ -43,11 +43,14 @@ class Browser:
         self.window.bind("<Button-4>", self.handle_mouse_scrollup)
         self.window.bind("<Button-5>", self.handle_mouse_scrolldown)
         self.window.bind("<Configure>", self.handle_configure)
-        self.window.bind("<KeyPress>", self.handle_key_press)
+        self.window.bind("<Key>", self.handle_key)
         self.window.bind("<Button-1>", self.handle_click)
+        self.window.bind("<Return>", self.handle_enter)
         # manage tabs
         self.tabs = []
         self.active_tab = None
+        self.focus = None
+        self.address_bar = ""
 
     def load(self, url):
         new_tab = Tab()
@@ -82,10 +85,18 @@ class Browser:
         self.canvas.create_text(15, 7, anchor="nw", text="+", font=button_font, fill="black")
         # draw address bar
         self.canvas.create_rectangle(40, 50, self.WIDTH - 10, 0.8*90, outline="black", width=1)
-        url = self.tabs[self.active_tab].url
-        self.canvas.create_text(55, 50, anchor='nw', text=url, font=button_font, fill="black")
+        if self.focus == "address bar":
+            self.canvas.create_text(
+                55, 50, anchor='nw', text=self.address_bar,
+                font=button_font, fill="black")
+            w = button_font.measure(self.address_bar)
+            self.canvas.create_line(55 + w, 50, 55 + w, 0.8*85, fill="black")
+        else:
+            url = self.tabs[self.active_tab].url
+            self.canvas.create_text(55, 50, anchor='nw', text=url,
+                                    font=button_font, fill="black")
         # draw back button
-        self.canvas.create_rectangle(10, 50, 35, 0.9*self.CHROME_PX, outline="black", width=1)
+        self.canvas.create_rectangle(10, 50, 35, 0.9*80, outline="black", width=1)
         self.canvas.create_polygon(0.8*15 + 3, 0.8*70 + 5, 0.8*30 + 3, 0.8*55 + 8, 0.8*30 + 3, 0.8*85 + 1, fill='black')
 
     def handle_down(self, e):
@@ -97,6 +108,7 @@ class Browser:
         self.draw()
 
     def handle_click(self, e):
+        self.focus = None
         if e.y < self.CHROME_PX:
             if 40 + 80 * len(self.tabs) > e.x >= 40 > e.y >= 0:
                 # find which tab was clicked on
@@ -104,9 +116,12 @@ class Browser:
             elif 10 <= e.x < 30 and 10 <= e.y < 30:
                 # open new tab
                 self.load(self.HOME_PAGE)
-            elif 10 <= e.x < 35 and 50 <= e.y < 90:
+            elif 10 <= e.x < 35 and 50 <= e.y < 0.9*80:
                 # go back in history
                 self.tabs[self.active_tab].go_back()
+            elif 40 <= e.x < self.WIDTH - 10 and 50 <= e.y < 0.8*90:
+                self.focus = "address bar"
+                self.address_bar = ""
         else:
             # clicked on page content
             self.tabs[self.active_tab].click(e.x, e.y - self.CHROME_PX)
@@ -130,9 +145,26 @@ class Browser:
         self.tabs[self.active_tab].configure(e.width, e.height)
         self.draw()
 
-    def handle_key_press(self, e):
-        self.tabs[self.active_tab].key_press_handler(e.keysym)
-        self.draw()
+    def handle_key(self, e):
+        if e.keysym == "BackSpace":
+            self.address_bar = self.address_bar[:-1]
+            self.draw()
+        elif e.keysym == "plus" or e.keysym == "minus":
+            self.tabs[self.active_tab].key_press_handler(e.keysym)
+            self.draw()
+        else:
+            if len(e.char) == 0: return
+            # ignore cases where no character is typed
+            if not (0x20 <= ord(e.char) < 0x7f): return
+            if self.focus == "address bar":
+                self.address_bar += e.char
+                self.draw()
+
+    def handle_enter(self, e):
+        if self.focus == "address bar":
+            self.tabs[self.active_tab].load(self.address_bar)
+            self.focus = None
+            self.draw()
 
 
 # Main method
