@@ -52,6 +52,10 @@ class RequestHandler:
                     request_bytes += heading.format(head.value).encode("utf8")
             request_bytes += connection_header
             s.send(request_bytes)
+            # print(len(request_bytes))
+            # for i in range(0, len(request_bytes), 1024):  # Sending in chunks of 1024 bytes
+            #     s.write(request_bytes[i:i + 1024])
+            #     time.sleep(0.1)  # Introduce a delay between writes
             # read response
             response = s.makefile("rb", newline="\r\n")
             # split response into pieces

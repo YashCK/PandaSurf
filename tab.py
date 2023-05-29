@@ -51,7 +51,17 @@ class Tab:
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
         except ValueError:
-            print("The path entered was likely not in the correct format.")
+            if url.startswith("https://google.com/"):
+                print("The path entered was likely not in the correct format.")
+            else:
+                google_url = "https://google.com/search?q="
+                for c in url:
+                    if c == " ":
+                        google_url += "+"
+                    else:
+                        google_url += c
+                self.load(google_url)
+
 
     def draw(self, canvas):
         for cmd in self.display_list:
