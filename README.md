@@ -1,10 +1,5 @@
 
 <h1 align="center">
-  <!--
-  <br>
-  <a href="http://www.amitmerchant.com/electron-markdownify"><img src="https://raw.githubusercontent.com/amitmerchant1990/electron-markdownify/master/app/img/markdownify.png" alt="Markdownify" width="200"></a>
-  <br>
-   --> 
   PandaSurf
   <br>
 </h1>
@@ -21,14 +16,19 @@
 
 <!-- Online Diff Eq Notes -->
 
-### Ex: This is what appears when you search this website up:
-<img width="622" alt="Screen Shot 2023-05-25 at 11 29 55 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/7b1f0a59-d7fe-49e2-8f5d-cfcafed76c25">
-
-<img width="1286" alt="Screen Shot 2023-05-25 at 11 26 34 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/0c071512-cc38-4bd2-91b8-8787824591fa">
+### Ex: This is how you can use the browser
+[![PandaSurf Demo](VideoDisplay.png)](https://www.youtube.com/watch?v=7CqXEiQak7o)
 
 ## Key Features
 
 Supports HTTP, HTTPS, File, Data, and View-Source schemes.
+
+- When a URL is entered, it parses the HTML/CSS from the HTTP response, and displays the webpage.
+- You can scroll up/down and zoom in/out(font increases/decreases in size)
+- Clicking on a hyperlink, takes you to the URL clicked on
+- You can open multiple tabs to search multiple websites, and also go back in history for any one
+- Allows for searching for links by typing in the address bar
+- Browser can be adjusted in size
 
 * URL Parsing (HTTP / HTTPS) \[https://.....]
   - HTML Parser
@@ -36,9 +36,11 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
     - Is not confused my html attributes
     - Fixes any malformed html (deals with html, head, body as implicit tags)
     - Adjust text based on tag (\<b> to bold, \<i> to italicize, \<small>, \<big>, etc...)
+    - Supports special characters &lt;, \&gt;, &amp;, $shy;, "&quot;
   - Layout Engine
     - A tree based structure used to model a page's layout tree
     - Each node in the tree corresponds to a layout object (Text/Heading/Section of Page) 
+      - Blocks/Sections, Lines, Words, and the Entire Documents all correspond to a Layout object
     - Compute size and position of each object
     - Allows to render backgrounds
   - CSS Parser
@@ -46,14 +48,11 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
     - Implemented cascading and inheritance
     - Support different font properties
       - color, font-weight, font-style, and font-size 
-    - Support tag selectors and descendent selectors
+    - Support tag selectors, descendent selectors, class selectors
     - Added support for both style attributes and linked CSS files;
-  - Displays text in the body of the HTTP Response (including special characters &lt;, \&gt;)
   - Supports Content-Encoding, Transfer-Encoding, Cache-Control Headers
   - Addresses URLs which are redirects
   - Caches URLs and fetches/deletes resources depending on if they are fresh 
-  - Allow for scrolling
-  - Zooming In/Out
 
 * File \[file:///.....]
   - Primarily for Text Files
@@ -89,19 +88,3 @@ Nothing currently
 ## License
 
 IDK
-
-## Alternate Examples
-
-<!-- View Source Missing Semester -->
-
-### View-Source Scheme
-
-<img width="623" alt="Screen Shot 2023-05-25 at 11 29 36 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/79fa85df-aba4-4c91-9872-058ac1ff34f8">
-
-<img width="1167" alt="Screen Shot 2023-05-25 at 11 27 51 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/3b9d9f76-ba9f-45a7-9855-eab920b467bb">
-
-<img width="1168" alt="Screen Shot 2023-05-25 at 11 28 12 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/3e380989-1fa6-40f3-bb2a-df753eedf940">
-
-### Another HTTPS Scheme
-
-<img width="1002" alt="Screen Shot 2023-05-25 at 11 43 53 PM" src="https://github.com/YashCK/PandaSurf/assets/43621900/17574042-5c74-42f6-8bb3-eaf798035b76">
