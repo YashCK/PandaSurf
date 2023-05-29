@@ -11,7 +11,7 @@ class LineLayout:
         self.height = None
         self.center_line = center_line
 
-    def layout(self, font_size):
+    def layout(self, font_delta):
         # set position relative to parent's position
         self.width = self.parent.width
         self.x = self.parent.x
@@ -21,7 +21,7 @@ class LineLayout:
             self.y = self.parent.y
         # apply layout to words in line
         for word in self.children:
-            word.layout(font_size)
+            word.layout(font_delta)
         # no words on the line
         if not self.children:
             self.height = 0

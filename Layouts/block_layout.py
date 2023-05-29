@@ -1,10 +1,9 @@
 # Web pages are constructed out of blocks (headings, paragraphs, and menus) that are stacked
 # vertically one after another
-import tkinter
-
+from Layouts.font_manager import get_font
 from Layouts.line_layout import LineLayout
 from Layouts.text_layout import TextLayout
-from draw import DrawText, DrawRect
+from draw import DrawRect
 from token import Text, Element
 
 FONTS = {}
@@ -34,14 +33,9 @@ class BlockLayout:
         self.style = "roman"
         self.size = 16
         # display and line information
-        self.display_list = []
-        self.line = []
         self.center_line = False
-        self.create_bullet = False
-        self.style_sheet = []
-        # word info
+        self.font_delta = None
         self.previous_word = None
-        self.in_bullet = False
 
     def layout_intermediate(self):
         # reads from HTML to tree and writes to Layout tree
@@ -51,7 +45,8 @@ class BlockLayout:
             self.children.append(inter)
             previous = inter
 
-    def layout(self, font_size):
+    def layout(self, font_delta):
+        self.font_delta = font_delta
         # set up width
         width = self.node.style.get('width')
         self.width = to_pixel(width) if (width != "auto" and width is not None) else self.parent.width
@@ -70,7 +65,7 @@ class BlockLayout:
             self.recurse(self.node)
         # recursively call layout on each child
         for child in self.children:
-            child.layout(font_size)
+            child.layout(font_delta)
             # self.style_sheet += child.style_sheet
         height = self.node.style.get('height')
         if height == "auto" or height is None:
@@ -80,23 +75,25 @@ class BlockLayout:
             # set height to dimension specified by container
             self.height = to_pixel(height)
 
-    def text(self, node, pre_tag):
+    def text(self, node):
         def add_to_line(the_word, word_width):
-            # self.line.append((self.cursor_x, the_word, font, color))
             line = self.children[-1]
-            text = TextLayout(node, word, line, self.previous_word)
+            text = TextLayout(node, the_word, line, self.previous_word, pre_tag, node.style["in-bullet"])
             line.children.append(text)
             self.previous_word = text
             self.cursor_x += word_width
-            if not to_bool(pre_tag):
+            if not pre_tag:
                 self.cursor_x += font.measure(" ")
+
+        # calculate pre-tag
+        pre_tag = to_bool(node.style["in-pre-tag"])
         # apply centering to the line
         if self.center_line:
             self.new_line(center_line=True)
             self.center_line = False
         # style properties and the words list t use
-        font = get_font(node)
-        words = construct_words(node, to_bool(pre_tag))
+        font = get_font(node, self.font_delta)
+        words = construct_words(node, pre_tag)
         # find positions for all the words in the list
         for word in words:
             # add words to lines
@@ -111,14 +108,14 @@ class BlockLayout:
                     self.new_line(self.center_line)
                     add_to_line(second_word, font.measure(second_word))
                     continue
-            elif to_bool(pre_tag) and word == "\n":
+            elif pre_tag and word == "\n":
                 self.new_line()
             # add to end of the line
             add_to_line(word, w)
 
     def new_line(self, center_line=False):
         self.previous_word = None
-        self.cursor_x = 0
+        self.cursor_x = self.HSTEP
         last_line = self.children[-1] if self.children else None
         new_line = LineLayout(self.node, self, last_line, center_line)
         self.children.append(new_line)
@@ -126,7 +123,7 @@ class BlockLayout:
     def recurse(self, node):
         if isinstance(node, Text):
             if to_bool(node.style["show-contents"]):
-                self.text(node, node.style["in-pre-tag"])
+                self.text(node)
         else:
             self.handle_tags(node)
             for child in node.children:
@@ -146,10 +143,8 @@ class BlockLayout:
                              "font-family": "Didot",
                              "font-style": "normal",
                              "font-size": "150%"}
-                self.text(toc, "False")
+                self.text(toc)
                 self.new_line()
-        if node.tag == "li":
-            self.in_bullet = True
         # if node.tag == "link":
         #     if ("rel", "stylesheet") in node.attributes.items():
         #         self.style_sheet.append(node.attributes["href"])
@@ -201,10 +196,9 @@ class BlockLayout:
                 display_list.append(rect)
         # bullet points
         if isinstance(self.node, Element) and self.node.tag == "li":
-            x2, y2 = self.x + 5, self.y + self.height / 2 + 5
-            rect = DrawRect(self.x, self.y + self.height / 2, x2, y2, "black")
+            x2, y2 = self.x + 10, self.y + self.height / 2 + 5
+            rect = DrawRect(self.x + 5, self.y + self.height / 2, x2, y2, "black")
             display_list.append(rect)
-            self.create_bullet = True
         # apply the following for the node's children
         for child in self.children:
             child.paint(display_list)
@@ -274,44 +268,3 @@ def to_bool(in_pre_tag):
 def to_pixel(value):
     value = value[:-2]
     return int(value)
-
-
-def get_font(node):
-    family = node.style["font-family"]
-    weight = node.style["font-weight"]
-    style = node.style["font-style"]
-    # In case of var
-    if weight == "var":
-        weight = "normal"
-    # translate CSS normal to Tk roman
-    if style == "normal":
-        style = "roman"
-    # manage inherited properties
-    # find_inherited_property(node, "color", "black")
-    # find_inherited_property(node, "font-family", "Didot")
-    # find_inherited_property(node, "font-size", 16)
-    # find_inherited_property(node, "font-style", "roman")
-    # find_inherited_property(node, "font-weight", "normal")
-    # convert CSS pixels to Tk points
-    size = int(float(node.style["font-size"][:-2]) * .75)
-    return get_cached_font(family, size, weight, style)
-
-
-def find_inherited_property(node, prop, default_val):
-    if node.style[prop] == "inherit":
-        new_prop = default_val
-        while node.parent:
-            node_prop = node.style["color"]
-            if node_prop != "inherit":
-                new_prop = node_prop
-                break
-            node = node.parent
-        node.style[prop] = new_prop
-
-
-def get_cached_font(family, size, weight, slant):
-    key = (family, size, weight, slant)
-    if key not in FONTS:
-        font = tkinter.font.Font(family=family, size=size, weight=weight, slant=slant)
-        FONTS[key] = font
-    return FONTS[key]

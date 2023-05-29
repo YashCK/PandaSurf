@@ -1,12 +1,11 @@
-import tkinter
-
+from Layouts.font_manager import get_font
 from draw import DrawText
 
 FONTS = {}
 
 
 class TextLayout:
-    def __init__(self, node, word, parent, previous, in_bullet=False):
+    def __init__(self, node, word, parent, previous, in_pre_tag=False, in_bullet=False):
         self.node = node
         self.word = word
         self.children = []
@@ -18,36 +17,28 @@ class TextLayout:
         self.width = None
         self.height = None
         self.font = None
+        self.in_pre_tag = in_pre_tag
         self.in_bullet = in_bullet
+        self.font_delta = None
 
-    def layout(self, font_size):
-        family = self.node.style["font-family"]
-        weight = self.node.style["font-weight"]
-        style = self.node.style["font-style"]
-        if style == "normal": style = "roman"
-        size = int(float(self.node.style["font-size"][:-2]) * .75)
-        self.font = get_cached_font(family, size, weight, style)
+    def layout(self, font_delta):
+        self.font_delta = font_delta
+        self.font = get_font(self.node, self.font_delta)
         # compute word’s size and x position
         # stack words left to write based on computed position
         self.width = self.font.measure(self.word)
         if self.previous:
-            space = self.previous.font.measure(" ")
-            self.x = self.previous.x + space + self.previous.width
+            self.x = self.previous.x + self.previous.width
+            if not self.in_pre_tag:
+                space = self.previous.font.measure(" ")
+                self.x += space
         else:
             self.x = self.parent.x
-        if self.in_bullet:
-            self.x += 5 + self.font.measure(" ")
+            if self.in_bullet:
+                self.x += 10 + self.font.measure(" ")
         self.height = self.font.metrics("linespace")
 
     def paint(self, display_list):
         color = self.node.style["color"]
         display_list.append(
             DrawText(self.x, self.y, self.word, self.font, color))
-
-
-def get_cached_font(family, size, weight, slant):
-    key = (family, size, weight, slant)
-    if key not in FONTS:
-        font = tkinter.font.Font(family=family, size=size, weight=weight, slant=slant)
-        FONTS[key] = font
-    return FONTS[key]

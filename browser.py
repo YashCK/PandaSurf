@@ -19,6 +19,7 @@ class Browser:
     INHERITED_PROPERTIES = {
         "show-contents": "True",
         "in-pre-tag": "False",
+        "in-bullet": "False",
         "font-family": "Didot",
         "font-size": "16px",
         "font-style": "normal",
@@ -46,7 +47,7 @@ class Browser:
         self.document = None
         self.display_list = []
         self.nodes = None
-        self.font_size = 16
+        self.font_delta = 0
         # set up canvas
         self.canvas.pack(expand=True, fill=tkinter.BOTH)
         # bind keys
@@ -87,9 +88,9 @@ class Browser:
             if cmd.top > self.scroll + self.HEIGHT: continue
             if cmd.bottom < self.scroll: continue
             if redraw:
-                cmd.execute(self.scroll, self.canvas, self.font_size)
+                cmd.execute(self.scroll, self.canvas, self.font_delta)
             else:
-                cmd.execute(self.scroll, self.canvas, self.font_size)
+                cmd.execute(self.scroll, self.canvas, self.font_delta)
         self.draw_scrollbar()
 
     def draw_scrollbar(self):
@@ -121,7 +122,7 @@ class Browser:
         # apply style in cascading order
         self.style(self.nodes, sorted(rules, key=cascade_priority))
         # compute the layout to be displayed in the browser
-        self.document.layout(self.WIDTH, self.HEIGHT, self.font_size, self.current_url)
+        self.document.layout(self.WIDTH, self.font_delta, self.current_url)
 
     def redraw(self, adjust_text_size=False):
         self.form_doc_layout()
@@ -132,11 +133,11 @@ class Browser:
     def key_press_handler(self, e):
         match e.keysym:
             case 'plus':
-                self.font_size += 1
+                self.font_delta += 1
                 self.redraw(True)
             case 'minus':
-                if self.font_size > 1:
-                    self.font_size -= 1
+                if self.font_delta > -10:
+                    self.font_delta -= 1
                     self.redraw(True)
 
     def configure(self, e):
@@ -246,6 +247,5 @@ def cascade_priority(rule):
 # Main method
 if __name__ == "__main__":
     import sys
-
     Browser().load(sys.argv[1])
     tkinter.mainloop()

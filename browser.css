@@ -14,6 +14,10 @@ sup { font-size: 115%; }
 head { show-contents: False; }
 code { font-family: Courier; }
 
+li {
+    in-bullet: True;
+    display: block;
+}
 
 html { display: block; }
 body { display: block; }
@@ -41,7 +45,6 @@ blockquote { display: block; }
 ol { display: block; }
 ul { display: block; }
 menu { display: block; }
-li { display: block; }
 dl { display: block; }
 dt { display: block; }
 dd { display: block; }

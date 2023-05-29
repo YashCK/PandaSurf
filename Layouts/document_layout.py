@@ -22,14 +22,14 @@ class DocumentLayout:
         self.style_sheets = []
 
     # create the child layout objects, and then recursively their layout methods
-    def layout(self, window_width, window_height, font_size, total_url):
+    def layout(self, window_width, font_delta, total_url):
         child = BlockLayout(self.node, self, None)
         self.children.append(child)
         # set attributes such that there is padding around content
         self.width = window_width - 2 * self.HSTEP
         self.x = self.HSTEP
         self.y = self.VSTEP
-        child.layout(font_size)
+        child.layout(font_delta)
         self.height = child.height + 2 * self.VSTEP
         # self.style_sheets = child.style_sheet
         # rq = RequestHandler()
