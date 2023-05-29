@@ -8,7 +8,7 @@ from Layouts.document_layout import DocumentLayout
 from draw import DrawRect
 from Requests.header import Header
 from Requests.request import RequestHandler, resolve_url
-from token import Element
+from token import Element, Text
 
 
 class Browser:
@@ -58,6 +58,7 @@ class Browser:
         self.window.bind("<Button-5>", self.mouse_scrolldown)
         self.window.bind("<Configure>", self.configure)
         self.window.bind("<KeyPress>", self.key_press_handler)
+        self.window.bind("<Button-1>", self.click)
         # store browser's style sheet
         with open("browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
@@ -145,6 +146,27 @@ class Browser:
         self.HEIGHT = e.height
         if self.WIDTH != 1 and self.HEIGHT != 1:
             self.redraw()
+
+    def click(self, e):
+        x, y = e.x, e.y
+        # account for scrolling
+        y += self.scroll
+        # what elements are at the location
+        objs = [obj for obj in tree_to_list(self.document, [])
+                if obj.x <= x < obj.x + obj.width
+                and obj.y <= y < obj.y + obj.height]
+        # which object is closest to the top
+        if not objs: return
+        elt = objs[-1].node
+        # climb html tree to find element
+        while elt:
+            if isinstance(elt, Text):
+                pass
+            elif elt.tag == "a" and "href" in elt.attributes:
+                # extract url and load it
+                url = resolve_url(elt.attributes["href"], self.current_url)
+                return self.load(url)
+            elt = elt.parent
 
     def on_mouse_wheel(self, e):
         if sys.platform.startswith('win'):
