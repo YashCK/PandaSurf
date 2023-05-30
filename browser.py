@@ -36,7 +36,7 @@ class Browser:
             height=self.HEIGHT,
             bg="gainsboro",
         )
-        self.bookmarks_list = []
+        self.bookmarks = []
         # set up canvas
         self.canvas.pack(expand=True, fill=tkinter.BOTH)
         # bind keys
@@ -57,7 +57,7 @@ class Browser:
         self.address_bar = ""
 
     def load(self, url):
-        new_tab = Tab()
+        new_tab = Tab(self.bookmarks)
         new_tab.load(url)
         self.active_tab = len(self.tabs)
         self.tabs.append(new_tab)
@@ -134,7 +134,7 @@ class Browser:
                                    0.8 * 85 + 1, fill=forward_color)
 
     def draw_bookmark_button(self):
-        bookmark_color = 'yellow' if self.tabs[self.active_tab].url in self.bookmarks_list else 'white'
+        bookmark_color = 'yellow' if self.tabs[self.active_tab].url in self.bookmarks else 'white'
         self.canvas.create_rectangle(self.WIDTH - 35, 50, self.WIDTH - 10, 0.9 * 80, outline="black", width=1)
         self.canvas.create_rectangle(self.WIDTH - 30, 55, self.WIDTH - 15, 0.9 * 80 - 5, outline="black",
                                      fill=bookmark_color, width=1)
@@ -167,10 +167,10 @@ class Browser:
                 self.address_bar = ""
             elif self.WIDTH - 45 <= e.x < self.WIDTH and 55 <= e.y < 0.8 * 90 - 5:
                 url = self.tabs[self.active_tab].url
-                if url in self.bookmarks_list:
-                    self.bookmarks_list.remove(url)
+                if url in self.bookmarks:
+                    self.bookmarks.remove(url)
                 else:
-                    self.bookmarks_list.append(url)
+                    self.bookmarks.append(url)
         else:
             # clicked on page content
             self.tabs[self.active_tab].click(e.x, e.y - self.CHROME_PX)

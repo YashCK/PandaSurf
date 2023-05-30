@@ -12,13 +12,12 @@ from tokens import Text, Element
 
 
 class Tab:
-
     WIDTH, HEIGHT = 1000, 800
     HSTEP, VSTEP = 13, 18
     SCROLL_STEP = 70
     CHROME_PX = 80
 
-    def __init__(self):
+    def __init__(self, bookmarks):
         self.rq = RequestHandler()
         self.nodes = None
         self.url = None
@@ -28,21 +27,32 @@ class Tab:
         self.scroll = 0
         self.history = []
         self.future = []
+        # set bookmarks
+        self.bookmarks = bookmarks
         # store browser's style sheet
         with open("browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
 
     def load(self, url: str = None):
         try:
+            headers, body = None, None
             if url is None:
                 url = "file://" + os.getcwd() + '/panda_surf_df.txt'
-            user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
-            accept_encoding_header = Header("Accept-Encoding", "gzip")
-            accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
-            header_list = [user_agent_header, accept_encoding_header, accept_language_header]
-            headers, body = self.rq.request(url, header_list)
-            self.url = url
-            self.history.append(url)
+                self.url = url
+                self.history.append(url)
+            elif url == "about:bookmarks":
+                data_url = self.construct_bookmarks_page()
+                headers, body = self.rq.request(data_url)
+                self.url = "about:bookmarks"
+                self.history.append("about:bookmarks")
+            else:
+                user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
+                accept_encoding_header = Header("Accept-Encoding", "gzip")
+                accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
+                header_list = [user_agent_header, accept_encoding_header, accept_language_header]
+                headers, body = self.rq.request(url, header_list)
+                self.url = url
+                self.history.append(url)
             self.nodes = HTMLParser(body).parse()
             # self.form_doc_layout()
             # if os.path.getsize("external.css") != 0:
@@ -61,7 +71,6 @@ class Tab:
                     google_url += c
             # create headers list
             header_list = {"User-Agent": "This is the PandaSurf Browser.", 'Accept-Language': 'en-US,en;q=0.9'}
-            # accept_encoding_header = Header("Accept-Encoding", "gzip")
             headers, body = request_google(google_url, header_list)
             self.url = google_url
             self.history.append(google_url)
@@ -182,7 +191,7 @@ class Tab:
 
     def mouse_scrolldown(self):
         max_y = self.document.height - (self.HEIGHT - self.CHROME_PX)
-        self.scroll = min(self.scroll + self.SCROLL_STEP/3, max_y)
+        self.scroll = min(self.scroll + self.SCROLL_STEP / 3, max_y)
 
     def mouse_scrollup(self):
         if self.scroll > 0:
@@ -213,6 +222,23 @@ class Tab:
         if len(self.future) > 1:
             ahead = self.future.pop()
             self.load(ahead)
+
+    def construct_bookmarks_page(self):
+        page = "data:text/html,<!DOCTYPE html> \
+                      <html> \
+                      <head> \
+                      <title>Bookmarks Page</title> \
+                      </head> \
+                      <body> "
+        page += "<h1 class=\"title\">"
+        page += "Bookmarks"
+        page += "</h1>"
+        for mark in self.bookmarks:
+            page += "<h1 class=\"title\">"
+            page += mark
+            page += "</h1>"
+        page += "<br> <br> </body> </html> "
+        return page
 
 
 def cascade_priority(rule):
