@@ -34,6 +34,7 @@ class Browser:
             height=self.HEIGHT,
             bg="gainsboro",
         )
+        self.bookmarks_list = []
         # set up canvas
         self.canvas.pack(expand=True, fill=tkinter.BOTH)
         # bind keys
@@ -71,6 +72,7 @@ class Browser:
         self.draw_add_button(button_font)
         self.draw_address_bar(button_font)
         self.draw_navigation_buttons()
+        self.draw_bookmark_button()
 
     def draw_tabs(self):
         tabfont = get_cached_font("Helvetica", 20, "normal", "roman")
@@ -92,17 +94,30 @@ class Browser:
         self.canvas.create_text(15, 7, anchor="nw", text="+", font=button_font, fill="black")
 
     def draw_address_bar(self, button_font):
-        self.canvas.create_rectangle(70, 50, self.WIDTH - 10, 0.8 * 90, outline="black", width=1)
+        self.canvas.create_rectangle(70, 50, self.WIDTH - 45, 0.8 * 90, outline="black", width=1)
         if self.focus == "address bar":
-            self.canvas.create_text(
-                75, 50, anchor='nw', text=self.address_bar,
-                font=button_font, fill="black")
-            w = button_font.measure(self.address_bar)
-            self.canvas.create_line(75 + w, 52, 75 + w, 0.8 * 85 + 1, fill="black")
+            self.display_text_in_bar(self.address_bar, button_font, create_line=True)
         else:
             url = self.tabs[self.active_tab].url
-            self.canvas.create_text(75, 50, anchor='nw', text=url,
-                                    font=button_font, fill="black")
+            self.display_text_in_bar(url, button_font)
+
+    def display_text_in_bar(self, text, button_font, create_line=False):
+        w = button_font.measure(text)
+        if w < (self.WIDTH - 45 - 90):
+            self.canvas.create_text(
+                75, 50, anchor='nw', text=text,
+                font=button_font, fill="black")
+        else:
+            add_w = self.WIDTH - 45 - 90
+            last_portion = self.address_bar
+            while w > add_w and last_portion != "":
+                last_portion = last_portion[1:]
+                w = button_font.measure(last_portion)
+            self.canvas.create_text(
+                75, 50, anchor='nw', text=last_portion,
+                font=button_font, fill="black")
+        if create_line:
+            self.canvas.create_line(75 + w, 52, 75 + w, 0.8 * 85 + 1, fill="black")
 
     def draw_navigation_buttons(self):
         # draw back button
@@ -115,6 +130,12 @@ class Browser:
         self.canvas.create_rectangle(40, 50, 65, 0.9 * 80, outline="black", width=1)
         self.canvas.create_polygon(0.8 * 15 + 48, 0.8 * 70 + 5, 0.8 * 30 + 23, 0.8 * 55 + 8, 0.8 * 30 + 23,
                                    0.8 * 85 + 1, fill=forward_color)
+
+    def draw_bookmark_button(self):
+        bookmark_color = 'yellow' if self.tabs[self.active_tab].url in self.bookmarks_list else 'white'
+        self.canvas.create_rectangle(self.WIDTH - 35, 50, self.WIDTH - 10, 0.9 * 80, outline="black", width=1)
+        self.canvas.create_rectangle(self.WIDTH - 30, 55, self.WIDTH - 15, 0.9 * 80 - 5, outline="black",
+                                     fill=bookmark_color, width=1)
 
     def handle_down(self, e):
         self.tabs[self.active_tab].scrolldown()
@@ -139,9 +160,15 @@ class Browser:
             elif 40 <= e.x < 65 and 50 <= e.y < 0.9 * 80:
                 # forward in history
                 self.tabs[self.active_tab].go_forward()
-            elif 40 <= e.x < self.WIDTH - 10 and 50 <= e.y < 0.8 * 90:
+            elif 40 <= e.x < self.WIDTH - 45 and 50 <= e.y < 0.8 * 90:
                 self.focus = "address bar"
                 self.address_bar = ""
+            elif self.WIDTH - 45 <= e.x < self.WIDTH and 55 <= e.y < 0.8 * 90 - 5:
+                url = self.tabs[self.active_tab].url
+                if url in self.bookmarks_list:
+                    self.bookmarks_list.remove(url)
+                else:
+                    self.bookmarks_list.append(url)
         else:
             # clicked on page content
             self.tabs[self.active_tab].click(e.x, e.y - self.CHROME_PX)

@@ -38,7 +38,8 @@ class Tab:
                 url = "file://" + os.getcwd() + '/panda_surf_df.txt'
             user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
             accept_encoding_header = Header("Accept-Encoding", "gzip")
-            header_list = [user_agent_header, accept_encoding_header]
+            accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9',)
+            header_list = [user_agent_header, accept_encoding_header, accept_language_header]
             headers, body = self.rq.request(url, header_list)
             self.url = url
             self.history.append(url)
