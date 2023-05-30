@@ -1,4 +1,4 @@
-from token import Text, Element
+from tokens import Text, Element
 
 
 class HTMLParser:

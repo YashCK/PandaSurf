@@ -23,7 +23,9 @@ class Browser:
                 "Type in the address bar to browse the web :) </h1> \
                 <br> <br>\
                 </body> \
-                </html>"
+                </html>                                               \
+                                                                      \
+                                                                      "
 
     def __init__(self):
         # attributes
@@ -109,7 +111,7 @@ class Browser:
                 font=button_font, fill="black")
         else:
             add_w = self.WIDTH - 45 - 90
-            last_portion = self.address_bar
+            last_portion = text
             while w > add_w and last_portion != "":
                 last_portion = last_portion[1:]
                 w = button_font.measure(last_portion)

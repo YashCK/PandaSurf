@@ -4,7 +4,7 @@ from Layouts.font_manager import get_font
 from Layouts.line_layout import LineLayout
 from Layouts.text_layout import TextLayout
 from draw import DrawRect
-from token import Text, Element
+from tokens import Text, Element
 
 FONTS = {}
 

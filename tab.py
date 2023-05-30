@@ -8,7 +8,7 @@ from Requests.header import Header
 from Requests.request import resolve_url, RequestHandler
 from draw import DrawRect
 from style import style
-from token import Text, Element
+from tokens import Text, Element
 
 
 class Tab:
@@ -38,7 +38,7 @@ class Tab:
                 url = "file://" + os.getcwd() + '/panda_surf_df.txt'
             user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
             accept_encoding_header = Header("Accept-Encoding", "gzip")
-            accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9',)
+            accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
             header_list = [user_agent_header, accept_encoding_header, accept_language_header]
             headers, body = self.rq.request(url, header_list)
             self.url = url
@@ -52,17 +52,21 @@ class Tab:
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
         except ValueError:
-            if url.startswith("https://google.com/"):
-                print("The path entered was likely not in the correct format.")
-            else:
-                google_url = "https://google.com/search?q="
-                for c in url:
-                    if c == " ":
-                        google_url += "+"
-                    else:
-                        google_url += c
-                self.load(google_url)
-
+            # construct URL
+            google_url = "https://google.com/search?q="
+            for c in url:
+                if c == " ":
+                    google_url += "+"
+                else:
+                    google_url += c
+            # create headers list
+            header_list = {"User-Agent": "This is the PandaSurf Browser.", 'Accept-Language': 'en-US,en;q=0.9'}
+            # accept_encoding_header = Header("Accept-Encoding", "gzip")
+            headers, body = request_google(google_url, header_list)
+            self.url = google_url
+            self.history.append(google_url)
+            self.nodes = HTMLParser(body).parse()
+            self.reload()
 
     def draw(self, canvas):
         for cmd in self.display_list:
@@ -221,3 +225,12 @@ def tree_to_list(tree, array):
     for child in tree.children:
         tree_to_list(child, array)
     return array
+
+
+def request_google(url, headers_list):
+    import requests
+    # Send an HTTP GET request
+    response = requests.get(url, headers=headers_list)
+    # Access response headers
+    headers = response.headers
+    return headers, response.text
