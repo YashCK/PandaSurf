@@ -4,7 +4,7 @@ from requests import request
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from Helper.style import tree_to_list
-from Requests.request import resolve_url, url_origin
+from Requests.request import resolve_url, url_origin, RequestHandler
 
 EVENT_DISPATCH_CODE = "new Node(dukpy.handle).dispatchEvent(new Event(dukpy.type))"
 
@@ -14,6 +14,8 @@ class JSContext:
         self.tab = tab
         self.node_to_handle = {}
         self.handle_to_node = {}
+
+        self.rq = RequestHandler()
 
         # export js functions to corresponding python functions
         self.interp = dukpy.JSInterpreter()
@@ -69,7 +71,7 @@ class JSContext:
 
     def XMLHttpRequest_send(self, method, url, body):
         full_url = resolve_url(url, self.tab.url)
-        headers, out = request(full_url, body)
+        headers, out = self.rq.request(full_url, self.tab.url, payload=body)
         # implement same origin policy
         if url_origin(full_url) != url_origin(self.tab.url):
             raise Exception("Cross-origin XHR request not allowed")

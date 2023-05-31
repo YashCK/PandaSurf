@@ -3,7 +3,6 @@ import sys
 import urllib.parse
 
 import dukpy
-from requests import request
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
@@ -55,11 +54,11 @@ class Tab:
                 self.history.append(url)
             elif url == "about:bookmarks":
                 data_url = self.construct_bookmarks_page()
-                headers, body = self.rq.request(data_url)
+                headers, body = self.rq.request(data_url, self.url)
                 self.url = "about:bookmarks"
                 self.history.append("about:bookmarks")
             else:
-                headers, body = self.rq.request(url, header_list, body)
+                headers, body = self.rq.request(url, self.url, header_list, body)
                 self.url = url
                 self.history.append(url)
             self.nodes = HTMLParser(body).parse()
@@ -81,7 +80,7 @@ class Tab:
                 else:
                     google_url += c
             # create headers list
-            headers, body = self.rq.request(google_url, header_list)
+            headers, body = self.rq.request(google_url, self.url, header_list)
             self.url = google_url
             self.history.append(google_url)
             self.nodes = HTMLParser(body).parse()
@@ -124,7 +123,8 @@ class Tab:
                    and "src" in node.attributes]
         # run all the scripts
         for script in scripts:
-            header, body = self.rq.request(resolve_url(script, self.url))
+            script_url = resolve_url(script, self.url)
+            header, body = self.rq.request(script_url, self.url)
             try:
                 self.js.run(body)
             except dukpy.JSRuntimeError as e:
@@ -140,8 +140,9 @@ class Tab:
                  and node.attributes.get("rel") == "stylesheet"]
         # browser can request each linked style sheet and add its rules to the rules list
         for link in links:
+            style_url = resolve_url(link, self.url)
             try:
-                header, body = self.rq.request(resolve_url(link, self.url))
+                header, body = self.rq.request(style_url, self.url)
             except:
                 # ignores style sheets that fail to download
                 continue

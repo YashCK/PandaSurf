@@ -17,7 +17,8 @@ class RequestHandler:
     def __init__(self):
         self.url_cache = Cache()
 
-    def request(self, url: str, header_list: list[Header] = None, payload=None) -> (str, str):
+    def request(self, url: str, top_level_url, header_list: list[Header] = None, payload=None) -> (str, str):
+
         def parse_url(address):
             # separate the host from the path
             host, path = address.split("/", 1)
@@ -44,8 +45,15 @@ class RequestHandler:
             method = "POST" if payload else "GET"
             request_bytes = "{} {} HTTP/1.0\r\n".format(method, path)
             if host in COOKIE_JAR:
-                cookie = COOKIE_JAR[host]
-                request_bytes += "Cookie: {}\r\n".format(cookie)
+                cookie, params = COOKIE_JAR[host]
+                allow_cookie = True
+                if top_level_url and params.get("samesite", "none") == "lax":
+                    _, _, top_level_host, _ = top_level_url.split("/", 3)
+                    if ":" in top_level_host:
+                        top_level_host, _ = top_level_host.split(":", 1)
+                    allow_cookie = (host == top_level_host or method == "GET")
+                if allow_cookie:
+                    request_bytes += "Cookie: {}\r\n".format(cookie)
             # If it is necessary to post, calculate length of content
             if payload:
                 length = len(payload.encode("utf8"))
@@ -94,8 +102,17 @@ class RequestHandler:
                 headers[header.lower()] = value.strip()
             # update the cookie jar
             if "set-cookie" in headers:
-                kv = headers["set-cookie"]
-                COOKIE_JAR[host] = kv
+                params = {}
+                # parse parameters out of Set-Cookie headers
+                if ";" in headers["set-cookie"]:
+                    cookie, rest = headers["set-cookie"].split(";", 1)
+                    for param_pair in rest.split(";"):
+                        name, value = param_pair.strip().split("=", 1)
+                        params[name.lower()] = value.lower()
+                else:
+                    cookie = headers["set-cookie"]
+                # store cookie/parameter pairs
+                COOKIE_JAR[host] = (cookie, params)
             # check if it is a redirect
             if is_redirect:
                 new_url = headers.get('location')
@@ -157,6 +174,7 @@ class RequestHandler:
                     self.url_cache.add_address(address)
             return headers, body
 
+        # top_level_url is the site which the HTTP request is being made from
         # strip off the http or https portion
         scheme, url = url.split(":", 1)
         assert scheme in ["http", "https", "file", "data", "view-source"], \

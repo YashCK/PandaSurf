@@ -47,8 +47,9 @@ def handle_connection(conx):
     # send page back to browser
     response = "HTTP/1.0 {}\r\n".format(status)
     response += "Content-Length: {}\r\n".format(len(body.encode("utf8")))
+    # mark cookies as SameSite
     if 'cookie' not in headers:
-        template = "Set-Cookie: token={}\r\n"
+        template = "Set-Cookie: token={}; SameSite=Lax\r\n"
         response += template.format(token)
     response += "\r\n" + body
     conx.send(response.encode('utf8'))
