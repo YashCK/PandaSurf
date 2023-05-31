@@ -1,8 +1,8 @@
 import os
 import sys
 import urllib.parse
-import dukpy
 
+import dukpy
 from requests import request
 
 from CSSParser import CSSParser
@@ -13,7 +13,7 @@ from Layouts.input_layout import InputLayout
 from Requests.header import Header
 from Requests.request import resolve_url, RequestHandler
 from Helper.draw import DrawRect
-from Helper.style import style
+from Helper.style import style, tree_to_list
 from Helper.tokens import Text, Element
 
 
@@ -63,7 +63,7 @@ class Tab:
                 self.url = url
                 self.history.append(url)
             self.nodes = HTMLParser(body).parse()
-            self.js = JSContext()
+            self.js = JSContext(self)
             # self.form_doc_layout()
             # if os.path.getsize("external.css") != 0:
             #     with open("external.css") as f:
@@ -181,6 +181,7 @@ class Tab:
             if isinstance(elt, Text):
                 pass
             elif elt.tag == "a" and "href" in elt.attributes:
+                self.js.dispatch_event("click", elt)
                 if elt.attributes["href"].startswith("#"):
                     word_to_find = elt.attributes["href"]
                     self.url = resolve_url(word_to_find, self.url)
@@ -192,10 +193,12 @@ class Tab:
                     url = resolve_url(elt.attributes["href"], self.url)
                     return self.load(url)
             elif elt.tag == "input":
+                self.js.dispatch_event("click", elt)
                 elt.attributes["value"] = ""
                 self.focus = elt
                 return self.render()
             elif elt.tag == "button":
+                self.js.dispatch_event("click", elt)
                 while elt:
                     if elt.tag == "form" and "action" in elt.attributes:
                         return self.submit_form(elt)
@@ -213,6 +216,7 @@ class Tab:
         return last_x, last_y
 
     def submit_form(self, elt):
+        self.js.dispatch_event("submit", elt)
         # look through the descendants of the form to find input elements
         inputs = [node for node in tree_to_list(elt, [])
                   if isinstance(node, Element)
@@ -258,6 +262,7 @@ class Tab:
 
     def keypress(self, char):
         if self.focus:
+            self.js.dispatch_event("keydown", self.focus)
             self.focus.attributes["value"] += char
             self.render()
 
@@ -316,10 +321,3 @@ class Tab:
 def cascade_priority(rule):
     selector, body = rule
     return selector.priority
-
-
-def tree_to_list(tree, array):
-    array.append(tree)
-    for child in tree.children:
-        tree_to_list(child, array)
-    return array

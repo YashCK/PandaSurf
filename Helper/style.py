@@ -60,3 +60,10 @@ def compute_style(node, prop, value):
             return None
     else:
         return value
+
+
+def tree_to_list(tree, array):
+    array.append(tree)
+    for child in tree.children:
+        tree_to_list(child, array)
+    return array

@@ -42,6 +42,9 @@ def show_comments():
     out += "</form>"
     for entry in ENTRIES:
         out += "<p>" + entry + "</p>"
+    out += "<link rel=stylesheet href=/comment.css>"
+    out += "<label></label>"
+    out += "<script src=/comment.js></script>"
     return out
 
 
@@ -63,6 +66,12 @@ def do_request(method, url, headers, body):
     elif method == "POST" and url == "/add":
         params = form_decode(body)
         return "200 OK", add_entry(params)
+    elif method == "GET" and url == "/comment.js":
+        with open("Sheets/comment.js") as f:
+            return "200 OK", f.read()
+    elif method == "GET" and url == "/comment.css":
+        with open("Sheets/comment.css") as f:
+            return "200 OK", f.read()
     else:
         return "404 Not Found", not_found(url, method)
 
