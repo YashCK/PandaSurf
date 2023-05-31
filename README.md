@@ -29,6 +29,11 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 - You can open multiple tabs to search multiple websites, and also go back in history for any one
 - Allows for searching for links by typing in the address bar
 - Browser can be adjusted in size
+- Cookies
+  - User data is maintained in the form of cookies and allows for it to be secured
+  - Stop cross-site XMLHttpRequests with same-origin policy
+  - Mitigate cross-site forgery (forms filled from other sites) with nonce values
+  - Prevent cross-site scripting with Content-Security-Policy
 
 * URL Parsing (HTTP / HTTPS) \[https://.....]
   - HTML Parser
@@ -41,6 +46,8 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
     - A tree based structure used to model a page's layout tree
     - Each node in the tree corresponds to a layout object (Text/Heading/Section of Page) 
       - Blocks/Sections, Lines, Words, and the Entire Documents all correspond to a Layout object
+      - Input fields and buttons also have a corresponding layout
+        - HTTP POST request is sent once a form is submitted 
     - Compute size and position of each object
     - Allows to render backgrounds
   - CSS Parser
@@ -50,7 +57,11 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
       - color, font-weight, font-style, and font-size 
     - Support tag selectors, descendent selectors, class selectors
     - Added support for both style attributes and linked CSS files;
-  - Supports Content-Encoding, Transfer-Encoding, Cache-Control Headers
+  - Javascript Emulation
+    -  Generate handles which allow scripts to refer to webpage elements
+    -  Read attribute values from page elements
+    -  Modify page elements once events occur (clicking/enter/keypress)
+  - Supports Content-Encoding, Transfer-Encoding, Cache-Control, Set-Cookie Headers
   - Addresses URLs which are redirects
   - Caches URLs and fetches/deletes resources depending on if they are fresh 
 
