@@ -311,3 +311,9 @@ def convert_source_to_html(body):
         else:
             new_body += c
     return new_body
+
+
+def url_origin(url):
+    # strip off the path from a URL
+    scheme_colon, _, host, _ = url.split("/", 3)
+    return scheme_colon + "//" + host

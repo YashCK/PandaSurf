@@ -1,8 +1,10 @@
 import dukpy
+from requests import request
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from Helper.style import tree_to_list
+from Requests.request import resolve_url, url_origin
 
 EVENT_DISPATCH_CODE = "new Node(dukpy.handle).dispatchEvent(new Event(dukpy.type))"
 
@@ -65,3 +67,10 @@ class JSContext:
         # modify the web page
         self.tab.render()
 
+    def XMLHttpRequest_send(self, method, url, body):
+        full_url = resolve_url(url, self.tab.url)
+        headers, out = request(full_url, body)
+        # implement same origin policy
+        if url_origin(full_url) != url_origin(self.tab.url):
+            raise Exception("Cross-origin XHR request not allowed")
+        return out

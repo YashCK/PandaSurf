@@ -60,8 +60,11 @@ def show_comments(session):
     # determine whether user is logged in
     if "user" in session:
         out += "<h1>Hello, " + session["user"] + "</h1>"
+        nonce = str(random.random())[2:]
+        session["nonce"] = nonce
         out += "<form action=add method=post>"
         out += "<p><input name=guest></p>"
+        out += "<input name=nonce type=hidden value=" + nonce + ">"
         out += "<p><button>Sign the book!</button></p>"
         out += "</form>"
     else:
@@ -71,15 +74,20 @@ def show_comments(session):
         out += "<p>" + entry + "\n"
         out += "<i>by " + who + "</i></p>"
 
+    out += "<link rel=stylesheet src=/comment.css>"
+    out += "<label></label>"
+    out += "<script src=/comment.js></script>"
+    out += "<script src=https://example.com/evil.js></script>"
     return out
 
 
 def add_entry(session, params):
-    def add_entry(session, params):
-        if "user" not in session: return
-        if 'guest' in params and len(params['guest']) <= 100:
-            # username from the session is stored into ENTRIES
-            ENTRIES.append((params['guest'], session["user"]))
+    if "user" not in session: return
+    if "nonce" not in session or "nonce" not in params: return
+    if session["nonce"] != params["nonce"]: return
+    if 'guest' in params and len(params['guest']) <= 100:
+        # username from the session is stored into ENTRIES
+        ENTRIES.append((params['guest'], session["user"]))
 
 
 def not_found(url, method):
