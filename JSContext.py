@@ -71,6 +71,9 @@ class JSContext:
 
     def XMLHttpRequest_send(self, method, url, body):
         full_url = resolve_url(url, self.tab.url)
+        # prevent cross site scripting
+        if not self.tab.allowed_request(full_url):
+            raise Exception("Cross-origin XHR blocked by CSP")
         headers, out = self.rq.request(full_url, self.tab.url, payload=body)
         # implement same origin policy
         if url_origin(full_url) != url_origin(self.tab.url):

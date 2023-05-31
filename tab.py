@@ -10,7 +10,7 @@ from JSContext import JSContext
 from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
 from Requests.header import Header
-from Requests.request import resolve_url, RequestHandler
+from Requests.request import resolve_url, RequestHandler, url_origin
 from Helper.draw import DrawRect
 from Helper.style import style, tree_to_list
 from Helper.tokens import Text, Element
@@ -35,6 +35,7 @@ class Tab:
         self.focus = None
         self.rules = None
         self.js = None
+        self.allowed_origins = None
         # set bookmarks
         self.bookmarks = bookmarks
         # store browser's style sheet
@@ -61,6 +62,13 @@ class Tab:
                 headers, body = self.rq.request(url, self.url, header_list, body)
                 self.url = url
                 self.history.append(url)
+                # extract and parse content of Content-Security-Policy header
+                self.allowed_origins = None
+                if "content-security-policy" in headers:
+                    csp = headers["content-security-policy"].split()
+                    if len(csp) > 0 and csp[0] == "default-src":
+                        self.allowed_origins = csp[1:]
+
             self.nodes = HTMLParser(body).parse()
             self.js = JSContext(self)
             # self.form_doc_layout()
@@ -124,6 +132,10 @@ class Tab:
         # run all the scripts
         for script in scripts:
             script_url = resolve_url(script, self.url)
+            # check whether the request is allowed
+            if not self.allowed_request(script_url):
+                print("Blocked script", script, "due to CSP")
+                continue
             header, body = self.rq.request(script_url, self.url)
             try:
                 self.js.run(body)
@@ -316,6 +328,9 @@ class Tab:
             page += "</h1>"
         page += "<br> <br> </body> </html> "
         return page
+
+    def allowed_request(self, url):
+        return self.allowed_origins is None or url_origin(url) in self.allowed_origins
 
 
 def cascade_priority(rule):
