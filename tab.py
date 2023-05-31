@@ -4,6 +4,7 @@ import sys
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from Layouts.document_layout import DocumentLayout
+from Layouts.input_layout import InputLayout
 from Requests.header import Header
 from Requests.request import resolve_url, RequestHandler
 from draw import DrawRect
@@ -27,6 +28,8 @@ class Tab:
         self.scroll = 0
         self.history = []
         self.future = []
+        self.focus = None
+        self.rules = None
         # set bookmarks
         self.bookmarks = bookmarks
         # store browser's style sheet
@@ -58,7 +61,8 @@ class Tab:
             # if os.path.getsize("external.css") != 0:
             #     with open("external.css") as f:
             #         self.default_style_sheet = CSSParser(f.read()).parse()
-            self.reload()
+            self.reload_document()
+            self.render()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
         except ValueError:
@@ -75,7 +79,8 @@ class Tab:
             self.url = google_url
             self.history.append(google_url)
             self.nodes = HTMLParser(body).parse()
-            self.reload()
+            self.reload_document()
+            self.render()
 
     def draw(self, canvas):
         for cmd in self.display_list:
@@ -85,6 +90,17 @@ class Tab:
                 continue
             cmd.execute(self.scroll - self.CHROME_PX, canvas)
         self.draw_scrollbar(canvas)
+        # figure out where text entry is located
+        if self.focus:
+            obj = [obj for obj in tree_to_list(self.document, [])
+                   if obj.node == self.focus and \
+                   isinstance(obj, InputLayout)][0]
+            # find coordinates of where cursor starts
+            text = self.focus.attributes.get("value", "")
+            x = obj.x + obj.font.measure(text)
+            y = obj.y - self.scroll + self.CHROME_PX
+            # draw the cursor
+            canvas.create_line(x, y, x, y + obj.height)
 
     def draw_scrollbar(self, canvas):
         max_y = self.document.height - self.HEIGHT
@@ -94,9 +110,9 @@ class Tab:
             rect = DrawRect(self.WIDTH - self.HSTEP, amount_scrolled * 0.9 * self.HEIGHT, x2, y2, "mediumpurple3")
             rect.execute(0, canvas)
 
-    def form_doc_layout(self):
+    def reload_document(self):
         self.document = DocumentLayout(self.nodes)
-        rules = self.default_style_sheet.copy()
+        self.rules = self.default_style_sheet.copy()
         # grab the URL of each linked style sheet
         links = [node.attributes["href"]
                  for node in tree_to_list(self.nodes, [])
@@ -111,14 +127,15 @@ class Tab:
             except:
                 # ignores style sheets that fail to download
                 continue
-            rules.extend(CSSParser(body).parse())
+            self.rules.extend(CSSParser(body).parse())
+
+    def render(self):
+        # redo the styling, layout, paint and draw phases
         # apply style in cascading order
-        style(self.nodes, sorted(rules, key=cascade_priority))
+        style(self.nodes, sorted(self.rules, key=cascade_priority))
         # compute the layout to be displayed in the browser
         self.document.layout(self.WIDTH, self.font_delta, self.url)
-
-    def reload(self):
-        self.form_doc_layout()
+        self.document.layout()
         self.display_list = []
         self.document.paint(self.display_list)
 
@@ -126,7 +143,8 @@ class Tab:
         self.WIDTH = width
         self.HEIGHT = height
         if self.WIDTH != 1 and self.HEIGHT != 1:
-            self.reload()
+            self.reload_document()
+            self.render()
 
     def click(self, x, y):
         # account for scrolling
@@ -139,8 +157,6 @@ class Tab:
         if not objs:
             return
         elt = objs[-1].node
-        go_to_location = False
-        id_to_find = None
         # climb html tree to find element
         while elt:
             if isinstance(elt, Text):
@@ -156,6 +172,15 @@ class Tab:
                     # extract url and load it
                     url = resolve_url(elt.attributes["href"], self.url)
                     return self.load(url)
+            elif elt.tag == "input":
+                elt.attributes["value"] = ""
+                self.focus = elt
+                return self.render()
+            elif elt.tag == "button":
+                while elt:
+                    if elt.tag == "form" and "action" in elt.attributes:
+                        return self.submit_form(elt)
+                    elt = elt.parent
             elt = elt.parent
 
     def find_location(self, identify):
@@ -183,11 +208,18 @@ class Tab:
         match key:
             case 'plus':
                 self.font_delta += 1
-                self.reload()
+                self.reload_document()
+                self.render()
             case 'minus':
                 if self.font_delta > -10:
                     self.font_delta -= 1
-                    self.reload()
+                    self.reload_document()
+                    self.render()
+
+    def keypress(self, char):
+        if self.focus:
+            self.focus.attributes["value"] += char
+            self.render()
 
     def mouse_scrolldown(self):
         max_y = self.document.height - (self.HEIGHT - self.CHROME_PX)

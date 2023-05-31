@@ -148,8 +148,8 @@ class Browser:
         self.draw()
 
     def handle_click(self, e):
-        self.focus = None
         if e.y < self.CHROME_PX:
+            self.focus = None
             if 40 + 80 * len(self.tabs) > e.x >= 40 > e.y >= 0:
                 # find which tab was clicked on
                 self.active_tab = int((e.x - 40) / 80)
@@ -172,6 +172,7 @@ class Browser:
                 else:
                     self.bookmarks.append(url)
         else:
+            self.focus = "content"
             # clicked on page content
             self.tabs[self.active_tab].click(e.x, e.y - self.CHROME_PX)
         self.draw()
@@ -226,6 +227,9 @@ class Browser:
             return
         elif self.focus == "address bar":
             self.address_bar += e.char
+            self.draw()
+        elif self.focus == "content":
+            self.tabs[self.active_tab].keypress(e.char)
             self.draw()
         elif e.keysym == "plus" or e.keysym == "minus":
             self.tabs[self.active_tab].key_press_handler(e.keysym)
