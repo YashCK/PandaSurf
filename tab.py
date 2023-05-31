@@ -181,7 +181,7 @@ class Tab:
             if isinstance(elt, Text):
                 pass
             elif elt.tag == "a" and "href" in elt.attributes:
-                self.js.dispatch_event("click", elt)
+                if self.js.dispatch_event("click", elt): return
                 if elt.attributes["href"].startswith("#"):
                     word_to_find = elt.attributes["href"]
                     self.url = resolve_url(word_to_find, self.url)
@@ -193,12 +193,12 @@ class Tab:
                     url = resolve_url(elt.attributes["href"], self.url)
                     return self.load(url)
             elif elt.tag == "input":
-                self.js.dispatch_event("click", elt)
+                if self.js.dispatch_event("click", elt): return
                 elt.attributes["value"] = ""
                 self.focus = elt
                 return self.render()
             elif elt.tag == "button":
-                self.js.dispatch_event("click", elt)
+                if self.js.dispatch_event("click", elt): return
                 while elt:
                     if elt.tag == "form" and "action" in elt.attributes:
                         return self.submit_form(elt)
@@ -216,7 +216,7 @@ class Tab:
         return last_x, last_y
 
     def submit_form(self, elt):
-        self.js.dispatch_event("submit", elt)
+        if self.js.dispatch_event("submit", elt): return
         # look through the descendants of the form to find input elements
         inputs = [node for node in tree_to_list(elt, [])
                   if isinstance(node, Element)
@@ -262,7 +262,7 @@ class Tab:
 
     def keypress(self, char):
         if self.focus:
-            self.js.dispatch_event("keydown", self.focus)
+            if self.js.dispatch_event("keydown", self.focus): return
             self.focus.attributes["value"] += char
             self.render()
 

@@ -4,7 +4,7 @@ from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from Helper.style import tree_to_list
 
-EVENT_DISPATCH_CODE = "new Node(dukpy.handle).dispatchEvent(dukpy.type)"
+EVENT_DISPATCH_CODE = "new Node(dukpy.handle).dispatchEvent(new Event(dukpy.type))"
 
 
 class JSContext:
@@ -50,8 +50,8 @@ class JSContext:
 
     def dispatch_event(self, type, elt):
         handle = self.node_to_handle.get(elt, -1)
-        self.interp.evaljs(
-            EVENT_DISPATCH_CODE, type=type, handle=handle)
+        do_default = self.interp.evaljs(EVENT_DISPATCH_CODE, type=type, handle=handle)
+        return not do_default
 
     def innerHTML_set(self, handle, s):
         # parse the HTML string

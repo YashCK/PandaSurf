@@ -49,7 +49,7 @@ def show_comments():
 
 
 def add_entry(params):
-    if 'guest' in params:
+    if 'guest' in params and len(params['guest']) <= 100:
         ENTRIES.append(params['guest'])
     return show_comments()
 

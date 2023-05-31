@@ -13,15 +13,6 @@ Node.prototype.getAttribute = function(attr) {
 
 LISTENERS = {}
 
-function Event(type) {
-    this.type = type
-    this.do_default = true;
-}
-
-Event.prototype.preventDefault = function() {
-    this.do_default = false;
-}
-
 Node.prototype.addEventListener = function(type, listener) {
     if (!LISTENERS[this.handle]) LISTENERS[this.handle] = {};
     var dict = LISTENERS[this.handle];
@@ -44,4 +35,13 @@ Node.prototype.dispatchEvent = function(evt) {
         list[i].call(this, evt);
     }
     return evt.do_default;
+}
+
+function Event(type) {
+    this.type = type
+    this.do_default = true;
+}
+
+Event.prototype.preventDefault = function() {
+    this.do_default = false;
 }
