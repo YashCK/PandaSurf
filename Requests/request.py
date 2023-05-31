@@ -115,12 +115,11 @@ class RequestHandler:
             # check for content encoding - decompress and then decode
             if 'content-encoding' in headers and headers['content-encoding'] == 'gzip':
                 body = zlib.decompressobj(32).decompress(body)
-            else:
-                try:
-                    body = body.decode('utf8')
-                except UnicodeDecodeError:
-                    body = body.decode('iso-8859-1')
-                    print(body)
+            try:
+                body = body.decode('utf8')
+            except UnicodeDecodeError:
+                body = body.decode('iso-8859-1')
+                print(body)
             s.close()
             # Add Caching support
             if 'cache-control' in headers:

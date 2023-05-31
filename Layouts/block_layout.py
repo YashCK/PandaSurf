@@ -36,7 +36,7 @@ class BlockLayout:
         self.size = 16
         # display and line information
         self.center_line = False
-        self.font_delta = None
+        self.font_delta = 0
         self.previous_word = None
 
     def layout_intermediate(self):
@@ -130,7 +130,7 @@ class BlockLayout:
         input_area = InputLayout(node, line, self.previous_word)
         line.children.append(input_area)
         self.previous_word = input_area
-        font = get_font(node)
+        font = get_font(node, self.font_delta)
         self.cursor_x += w + font.measure(" ")
 
     def recurse(self, node):

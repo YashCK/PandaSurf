@@ -76,7 +76,6 @@ class Tab:
                     google_url += c
             # create headers list
             headers, body = self.rq.request(google_url, header_list)
-            print("body: ", body)
             self.url = google_url
             self.history.append(google_url)
             self.nodes = HTMLParser(body).parse()
@@ -181,6 +180,7 @@ class Tab:
                     if elt.tag == "form" and "action" in elt.attributes:
                         return self.submit_form(elt)
                     elt = elt.parent
+                break
             elt = elt.parent
 
     def find_location(self, identify):
@@ -200,9 +200,9 @@ class Tab:
                   and "name" in node.attributes]
         # extract name and value attributes, and form encode both of them
         body = ""
-        for input in inputs:
-            name = input.attributes["name"]
-            value = input.attributes.get("value", "")
+        for i in inputs:
+            name = i.attributes["name"]
+            value = i.attributes.get("value", "")
             # replace special characters
             name = urllib.parse.quote(name)
             value = urllib.parse.quote(value)
