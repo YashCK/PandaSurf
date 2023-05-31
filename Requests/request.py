@@ -9,6 +9,8 @@ from Requests.address import Address
 from Requests.cache import Cache
 from Requests.header import Header
 
+COOKIE_JAR = {}
+
 
 class RequestHandler:
 

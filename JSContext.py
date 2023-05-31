@@ -17,7 +17,7 @@ class JSContext:
         self.interp = dukpy.JSInterpreter()
         self.interp.export_function("log", print)
         self.interp.export_function("querySelectorAll", self.query_selector_all)
-        self.interp.export_function("getAttribute", self.get_attribute())
+        self.interp.export_function("getAttribute", self.get_attribute)
         self.interp.export_function("innerHTML_set", self.innerHTML_set)
 
         with open("Sheets/runtime.js") as f:

@@ -42,7 +42,7 @@ class Tab:
         with open("Sheets/browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
 
-    def load(self, url: str = None, body = None):
+    def load(self, url: str = None, body=None):
         user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
         accept_encoding_header = Header("Accept-Encoding", "gzip")
         accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
@@ -99,8 +99,7 @@ class Tab:
         # figure out where text entry is located
         if self.focus:
             obj = [obj for obj in tree_to_list(self.document, [])
-                   if obj.node == self.focus and \
-                   isinstance(obj, InputLayout)][0]
+                   if obj.node == self.focus and isinstance(obj, InputLayout)][0]
             # find coordinates of where cursor starts
             text = self.focus.attributes.get("value", "")
             x = obj.x + obj.font.measure(text)

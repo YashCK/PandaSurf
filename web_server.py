@@ -1,7 +1,18 @@
+import random
 import socket
 import urllib.parse
 
-ENTRIES = ['Panda was here']
+ENTRIES = [
+    ("Panda", "bear"),
+    ("Lion", "king"),
+]
+
+LOGINS = {
+    "bear": "abc123",
+    "king": "epic"
+}
+
+SESSIONS = {}
 
 
 def handle_connection(conx):
@@ -23,35 +34,52 @@ def handle_connection(conx):
         body = req.read(length).decode('utf8')
     else:
         body = None
+    # extract token from cookie header or generate a new one
+    if "cookie" in headers:
+        token = headers["cookie"][len("token="):]
+    else:
+        token = str(random.random())[2:]
+    # store information about each user
+    session = SESSIONS.setdefault(token, {})
+    status, body = do_request(session, method, url, headers, body)
     # generate a web page in response
     status, body = do_request(method, url, headers, body)
     # send page back to browser
     response = "HTTP/1.0 {}\r\n".format(status)
-    response += "Content-Length: {}\r\n".format(
-        len(body.encode("utf8")))
+    response += "Content-Length: {}\r\n".format(len(body.encode("utf8")))
+    if 'cookie' not in headers:
+        template = "Set-Cookie: token={}\r\n"
+        response += template.format(token)
     response += "\r\n" + body
     conx.send(response.encode('utf8'))
     conx.close()
 
 
-def show_comments():
+def show_comments(session):
     out = "<!doctype html>"
-    out += "<form action=add method=post>"
-    out += "<p><input name=guest></p>"
-    out += "<p><button>Sign the book!</button></p>"
-    out += "</form>"
-    for entry in ENTRIES:
-        out += "<p>" + entry + "</p>"
-    out += "<link rel=stylesheet href=/comment.css>"
-    out += "<label></label>"
-    out += "<script src=/comment.js></script>"
+    # determine whether user is logged in
+    if "user" in session:
+        out += "<h1>Hello, " + session["user"] + "</h1>"
+        out += "<form action=add method=post>"
+        out += "<p><input name=guest></p>"
+        out += "<p><button>Sign the book!</button></p>"
+        out += "</form>"
+    else:
+        out += "<a href=/login>Sign in to write in the guest book</a>"
+
+    for entry, who in ENTRIES:
+        out += "<p>" + entry + "\n"
+        out += "<i>by " + who + "</i></p>"
+
     return out
 
 
-def add_entry(params):
-    if 'guest' in params and len(params['guest']) <= 100:
-        ENTRIES.append(params['guest'])
-    return show_comments()
+def add_entry(session, params):
+    def add_entry(session, params):
+        if "user" not in session: return
+        if 'guest' in params and len(params['guest']) <= 100:
+            # username from the session is stored into ENTRIES
+            ENTRIES.append((params['guest'], session["user"]))
 
 
 def not_found(url, method):
@@ -60,20 +88,50 @@ def not_found(url, method):
     return out
 
 
-def do_request(method, url, headers, body):
+def do_request(session, method, url, headers, body):
     if method == "GET" and url == "/":
-        return "200 OK", show_comments()
+        return "200 OK", show_comments(session)
     elif method == "POST" and url == "/add":
         params = form_decode(body)
-        return "200 OK", add_entry(params)
+        add_entry(session, params)
+        return "200 OK", show_comments(session)
     elif method == "GET" and url == "/comment.js":
         with open("Sheets/comment.js") as f:
             return "200 OK", f.read()
     elif method == "GET" and url == "/comment.css":
         with open("Sheets/comment.css") as f:
             return "200 OK", f.read()
+    elif method == "GET" and url == "/login":
+        return "200 OK", login_form(session)
+    elif method == "POST" and url == "/":
+        params = form_decode(body)
+        return do_login(session, params)
     else:
         return "404 Not Found", not_found(url, method)
+
+
+def login_form(session):
+    # a form with a username and a password field
+    body = "<!doctype html>"
+    body += "<form action=/ method=post>"
+    body += "<p>Username: <input name=username></p>"
+    body += "<p>Password: <input name=password type=password></p>"
+    body += "<p><button>Log in</button></p>"
+    body += "</form>"
+    return body
+
+
+def do_login(session, params):
+    # checks passwords and logs people in by storing their username in the session data
+    username = params.get("username")
+    password = params.get("password")
+    if username in LOGINS and LOGINS[username] == password:
+        session["user"] = username
+        return "200 OK", show_comments(session)
+    else:
+        out = "<!doctype html>"
+        out += "<h1>Invalid password for {}</h1>".format(username)
+        return "401 Unauthorized", out
 
 
 def form_decode(body):
@@ -81,9 +139,7 @@ def form_decode(body):
     params = {}
     for field in body.split("&"):
         name, value = field.split("=", 1)
-        name = urllib.parse.unquote_plus(name)
-        value = urllib.parse.unquote_plus(value)
-        params[name] = value
+        params[name] = urllib.parse.unquote_plus(value)
     return params
 
 
