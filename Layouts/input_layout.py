@@ -1,6 +1,6 @@
 from Layouts.font_manager import get_font
-from draw import DrawRect, DrawText
-from tokens import Text
+from Helper.draw import DrawRect, DrawText
+from Helper.tokens import Text
 
 INPUT_WIDTH_PX = 200
 

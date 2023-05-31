@@ -17,7 +17,7 @@
 <!-- Online Diff Eq Notes -->
 
 ### Ex: This is how you can use the browser
-[![PandaSurf Demo](VideoDisplay.png)](https://www.youtube.com/watch?v=7CqXEiQak7o)
+[![PandaSurf Demo](Helper/VideoDisplay.png)](https://www.youtube.com/watch?v=7CqXEiQak7o)
 
 ## Key Features
 

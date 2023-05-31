@@ -1,4 +1,4 @@
-from selector import TagSelector, DescendantSelector, ClassSelector
+from Helper.selector import TagSelector, DescendantSelector, ClassSelector
 
 
 class CSSParser:

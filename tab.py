@@ -1,16 +1,20 @@
 import os
 import sys
 import urllib.parse
+import dukpy
+
+from requests import request
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
+from JSContext import JSContext
 from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
 from Requests.header import Header
 from Requests.request import resolve_url, RequestHandler
-from draw import DrawRect
-from style import style
-from tokens import Text, Element
+from Helper.draw import DrawRect
+from Helper.style import style
+from Helper.tokens import Text, Element
 
 
 class Tab:
@@ -31,10 +35,11 @@ class Tab:
         self.future = []
         self.focus = None
         self.rules = None
+        self.js = None
         # set bookmarks
         self.bookmarks = bookmarks
         # store browser's style sheet
-        with open("browser.css") as f:
+        with open("Sheets/browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
 
     def load(self, url: str = None, body = None):
@@ -58,6 +63,7 @@ class Tab:
                 self.url = url
                 self.history.append(url)
             self.nodes = HTMLParser(body).parse()
+            self.js = JSContext()
             # self.form_doc_layout()
             # if os.path.getsize("external.css") != 0:
             #     with open("external.css") as f:
@@ -111,7 +117,20 @@ class Tab:
             rect.execute(0, canvas)
 
     def reload_document(self):
-        self.document = DocumentLayout(self.nodes)
+        # find all the scripts
+        scripts = [node.attributes["src"] for node
+                   in tree_to_list(self.nodes, [])
+                   if isinstance(node, Element)
+                   and node.tag == "script"
+                   and "src" in node.attributes]
+        # run all the scripts
+        for script in scripts:
+            header, body = self.rq.request(resolve_url(script, self.url))
+            try:
+                self.js.run(body)
+            except dukpy.JSRuntimeError as e:
+                print("Script", script, "crashed", e)
+        # copy rules
         self.rules = self.default_style_sheet.copy()
         # grab the URL of each linked style sheet
         links = [node.attributes["href"]
@@ -133,6 +152,7 @@ class Tab:
         # redo the styling, layout, paint and draw phases
         # apply style in cascading order
         style(self.nodes, sorted(self.rules, key=cascade_priority))
+        self.document = DocumentLayout(self.nodes)
         # compute the layout to be displayed in the browser
         self.document.layout(self.WIDTH, self.font_delta, self.url)
         self.display_list = []

@@ -4,8 +4,8 @@ from Layouts.font_manager import get_font
 from Layouts.input_layout import InputLayout
 from Layouts.line_layout import LineLayout
 from Layouts.text_layout import TextLayout
-from draw import DrawRect
-from tokens import Text, Element
+from Helper.draw import DrawRect
+from Helper.tokens import Text, Element
 
 FONTS = {}
 INPUT_WIDTH_PX = 200

@@ -1,5 +1,5 @@
 from CSSParser import CSSParser
-from tokens import Element
+from Helper.tokens import Element
 
 INHERITED_PROPERTIES = {
     "show-contents": "True",
