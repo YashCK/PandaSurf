@@ -43,6 +43,10 @@ class RequestHandler:
             # make request to other server
             method = "POST" if payload else "GET"
             request_bytes = "{} {} HTTP/1.0\r\n".format(method, path)
+            if host in COOKIE_JAR:
+                cookie = COOKIE_JAR[host]
+                request_bytes += "Cookie: {}\r\n".format(cookie)
+            # If it is necessary to post, calculate length of content
             if payload:
                 length = len(payload.encode("utf8"))
                 request_bytes += "Content-Length: {}\r\n".format(length)
@@ -88,6 +92,10 @@ class RequestHandler:
                 header = header.decode("utf8")
                 value = value.decode("utf8")
                 headers[header.lower()] = value.strip()
+            # update the cookie jar
+            if "set-cookie" in headers:
+                kv = headers["set-cookie"]
+                COOKIE_JAR[host] = kv
             # check if it is a redirect
             if is_redirect:
                 new_url = headers.get('location')
@@ -149,77 +157,6 @@ class RequestHandler:
                     self.url_cache.add_address(address)
             return headers, body
 
-        def parse_file(path):
-            with open(path, 'r') as file:
-                # Read the contents of the file
-                file_contents = file.read()
-            return "", file_contents
-
-        def parse_data():
-            # extract MIME type, Optional Parameters, and Content
-            split_parts = url.split(',')
-            non_content = split_parts[0].split(':')[0].split(';')
-            mime_type = non_content[0]
-            optional_parameters = []
-            if len(non_content) > 1:
-                optional_parameters = non_content[1:]
-            content = split_parts[1]
-
-            # helper functions
-            def find_encoding(default_encoding):
-                encoding = default_encoding
-                for param in optional_parameters:
-                    if param.startswith("charset="):
-                        encoding = param.split('=')[1]
-                        break
-                return encoding
-
-            def find_base():
-                base = None
-                for param in optional_parameters:
-                    if param.startswith("base"):
-                        return param
-                return base
-
-            # cases for all MIME types
-            decoded_data = content
-            # figure out encoding
-            # decode the data
-            # figure out how to represent the data based on the mime type
-            # handle the optional parameters
-            # error handling for unsupported types
-            match mime_type:
-                case 'text/plain':
-                    baseX = find_base()
-                    if not (baseX is None):
-                        if baseX == 'base64':
-                            decoded_bytes = base64.b64decode(content)
-                            decoded_data = codecs.decode(decoded_bytes, "utf-8")
-                case 'text/html':
-                    baseX = find_base()
-                    if not (baseX is None):
-                        if baseX == 'base64':
-                            decoded_bytes = base64.b64decode(content)
-                            decoded_data = codecs.decode(decoded_bytes, "utf-8")
-                case 'image/jpeg' | 'image/png':
-                    decoded_data = base64.b64decode(content)
-                case 'application/pdf' | 'application/json' | 'audio/mpeg' | 'video/mp4':
-                    print("The MIME type entered in the URL is not currently supported.")
-                case _:
-                    print("The MIME type entered in the URL is not supported.")
-            return "", decoded_data
-
-        def transform_source(body):
-            new_body = ""
-            for c in body:
-                if c == "<":
-                    new_body += '&lt;'
-                elif c == ">":
-                    new_body += '&gt;'
-                else:
-                    new_body += c
-            return new_body
-
         # strip off the http or https portion
         scheme, url = url.split(":", 1)
         assert scheme in ["http", "https", "file", "data", "view-source"], \
@@ -240,13 +177,75 @@ class RequestHandler:
                 url = url[2:]
                 return parse_file(url)
             case "data":
-                return parse_data()
+                return parse_data(url)
             case "view-source":
                 inner_scheme, inner_url = url.split(":", 1)
                 scheme = inner_scheme
                 url_headers, url_body = parse_url(inner_url[2:])
                 new_html_body = convert_source_to_html(transform_source(url_body))
                 return url_headers, new_html_body
+
+
+def parse_file(path):
+    with open(path, 'r') as file:
+        # Read the contents of the file
+        file_contents = file.read()
+    return "", file_contents
+
+
+def parse_data(url):
+    # extract MIME type, Optional Parameters, and Content
+    split_parts = url.split(',')
+    non_content = split_parts[0].split(':')[0].split(';')
+    mime_type = non_content[0]
+    optional_parameters = []
+    if len(non_content) > 1:
+        optional_parameters = non_content[1:]
+    content = split_parts[1]
+
+    # helper functions
+    def find_encoding(default_encoding):
+        encoding = default_encoding
+        for param in optional_parameters:
+            if param.startswith("charset="):
+                encoding = param.split('=')[1]
+                break
+        return encoding
+
+    def find_base():
+        base = None
+        for param in optional_parameters:
+            if param.startswith("base"):
+                return param
+        return base
+
+    # cases for all MIME types
+    decoded_data = content
+    # figure out encoding
+    # decode the data
+    # figure out how to represent the data based on the mime type
+    # handle the optional parameters
+    # error handling for unsupported types
+    match mime_type:
+        case 'text/plain':
+            baseX = find_base()
+            if not (baseX is None):
+                if baseX == 'base64':
+                    decoded_bytes = base64.b64decode(content)
+                    decoded_data = codecs.decode(decoded_bytes, "utf-8")
+        case 'text/html':
+            baseX = find_base()
+            if not (baseX is None):
+                if baseX == 'base64':
+                    decoded_bytes = base64.b64decode(content)
+                    decoded_data = codecs.decode(decoded_bytes, "utf-8")
+        case 'image/jpeg' | 'image/png':
+            decoded_data = base64.b64decode(content)
+        case 'application/pdf' | 'application/json' | 'audio/mpeg' | 'video/mp4':
+            print("The MIME type entered in the URL is not currently supported.")
+        case _:
+            print("The MIME type entered in the URL is not supported.")
+    return "", decoded_data
 
 
 def resolve_url(url, current):
@@ -269,6 +268,18 @@ def resolve_url(url, current):
             if directory.count("/") == 2: continue
             directory, _ = directory.rsplit("/", 1)
         return directory + "/" + url
+
+
+def transform_source(body):
+    new_body = ""
+    for c in body:
+        if c == "<":
+            new_body += '&lt;'
+        elif c == ">":
+            new_body += '&gt;'
+        else:
+            new_body += c
+    return new_body
 
 
 def convert_source_to_html(body):
