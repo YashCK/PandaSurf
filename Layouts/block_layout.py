@@ -1,12 +1,14 @@
 # Web pages are constructed out of blocks (headings, paragraphs, and menus) that are stacked
 # vertically one after another
 from Layouts.font_manager import get_font
+from Layouts.input_layout import InputLayout
 from Layouts.line_layout import LineLayout
 from Layouts.text_layout import TextLayout
 from draw import DrawRect
 from tokens import Text, Element
 
 FONTS = {}
+INPUT_WIDTH_PX = 200
 
 
 class BlockLayout:
@@ -120,6 +122,17 @@ class BlockLayout:
         new_line = LineLayout(self.node, self, last_line, center_line)
         self.children.append(new_line)
 
+    def input(self, node):
+        w = INPUT_WIDTH_PX
+        if self.cursor_x + w > self.width:
+            self.new_line()
+        line = self.children[-1]
+        input_area = InputLayout(node, line, self.previous_word)
+        line.children.append(input_area)
+        self.previous_word = input_area
+        font = get_font(node)
+        self.cursor_x += w + font.measure(" ")
+
     def recurse(self, node):
         if isinstance(node, Text):
             if to_bool(node.style["show-contents"]):
@@ -132,10 +145,10 @@ class BlockLayout:
     def handle_tags(self, node):
         if node.tag == "br" or node.tag == "p":
             self.new_line()
-        if node.tag == "h1":
+        elif node.tag == "h1":
             if ("class", "title") in node.attributes.items():
                 self.center_line = True
-        if node.tag == "nav":
+        elif node.tag == "nav":
             if ("id", "toc") in node.attributes.items():
                 toc = Text("Table of Contents", None)
                 toc.style = {"font-weight": "bold",
@@ -145,37 +158,11 @@ class BlockLayout:
                              "font-size": "150%"}
                 self.text(toc)
                 self.new_line()
+        elif node.tag == "input" or node.tag == "button":
+            self.input(node)
         # if node.tag == "link":
         #     if ("rel", "stylesheet") in node.attributes.items():
         #         self.style_sheet.append(node.attributes["href"])
-
-    def flush(self, center_line=False):
-        if not self.line:
-            return
-        # first compute the length of the line
-        line_length = 0
-        if center_line:
-            first_char_pos = self.line[0][0]
-            last_word_info = self.line[len(self.line) - 1]
-            last_char_pos = last_word_info[0] + last_word_info[2].measure(last_word_info[1])
-            line_length = last_char_pos - first_char_pos
-        # compute the metrics to figure out where the line should be
-        metrics = [font.metrics() for x, word, font, color in self.line]
-        # figure out the tallest word
-        max_ascent = max([metric["ascent"] for metric in metrics])
-        baseline = self.cursor_y + 1.25 * max_ascent
-        # place each word relative to the line, then add to display list
-        for x, word, font, color in self.line:
-            y = baseline - font.metrics("ascent")
-            if center_line:
-                new_x = x + (self.width - line_length) / 2
-                self.display_list.append((new_x, y, word, font, color))
-            else:
-                self.display_list.append((x, y, word, font, color))
-        self.cursor_x = self.x
-        self.line = []
-        max_descent = max([metric["descent"] for metric in metrics])
-        self.cursor_y = baseline + 1.25 * max_descent
 
     def paint(self, display_list):
         # browser can consult element for styling information
@@ -183,11 +170,14 @@ class BlockLayout:
         # fix for when it encounters rgba and crashes
         if bgcolor == "rgba" or bgcolor == "var":
             bgcolor = "transparent"
-        # draw background colors
-        if bgcolor != "transparent":
-            x2, y2 = self.x + self.width, self.y + self.height
-            rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
-            display_list.append(rect)
+        # draw background as long as its not an input layout wrapped in a block layout
+        is_atomic = not isinstance(self.node, Text) and \
+                    (self.node.tag == "input" or self.node.tag == "button")
+        if not is_atomic:
+            if bgcolor != "transparent":
+                x2, y2 = self.x + self.width, self.y + self.height
+                rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
+                display_list.append(rect)
         # links bar
         if isinstance(self.node, Element) and self.node.tag == "nav":
             if ("class", "links") in self.node.attributes.items():
@@ -236,6 +226,8 @@ def layout_mode(node):
         for child in node.children:
             if isinstance(child, Element) and child.style.get("display") == "block":
                 return "block"
+        return "inline"
+    elif node.tag == "input":
         return "inline"
     else:
         return "block"
