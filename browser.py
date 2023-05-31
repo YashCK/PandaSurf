@@ -240,6 +240,13 @@ class Browser:
             self.tabs[self.active_tab].load(self.address_bar)
             self.focus = None
             self.draw()
+        elif self.focus == "content":
+            tab = self.tabs[self.active_tab]
+            tab_focus = tab.focus
+            while tab_focus:
+                if tab_focus.tag == "form" and "action" in tab_focus.attributes:
+                    return tab.submit_form(tab_focus)
+                tab_focus = tab_focus.parent
 
 
 # Main method

@@ -119,7 +119,6 @@ class RequestHandler:
                 body = body.decode('utf8')
             except UnicodeDecodeError:
                 body = body.decode('iso-8859-1')
-                print(body)
             s.close()
             # Add Caching support
             if 'cache-control' in headers:
