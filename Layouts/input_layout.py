@@ -17,8 +17,8 @@ class InputLayout:
         self.height = None
         self.font = None
 
-    def layout(self):
-        self.font = get_font(self.node)
+    def layout(self, font_delta):
+        self.font = get_font(self.node, font_delta)
         self.width = INPUT_WIDTH_PX
         if self.previous:
             space = self.previous.font.measure(" ")

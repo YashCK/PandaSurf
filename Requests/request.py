@@ -15,7 +15,7 @@ class RequestHandler:
     def __init__(self):
         self.url_cache = Cache()
 
-    def request(self, url: str, header_list: list[Header] = None) -> (str, str):
+    def request(self, url: str, header_list: list[Header] = None, payload=None) -> (str, str):
         def parse_url(address):
             # separate the host from the path
             host, path = address.split("/", 1)
@@ -32,26 +32,32 @@ class RequestHandler:
                 type=socket.SOCK_STREAM,  # Can send data of arbitrary size
                 proto=socket.IPPROTO_TCP,  # TCP Protocol
             )
+            # connect socket to server
+            s.connect((host, port))
             # encrypt the connection if https
             if scheme == "https":
                 ctx = ssl.create_default_context()
                 s = ctx.wrap_socket(s, server_hostname=host)
-            # connect socket to server
-            s.connect((host, port))
             # make request to other server
+            method = "POST" if payload else "GET"
+            request_bytes = "{} {} HTTP/1.0\r\n".format(method, path)
+            if payload:
+                length = len(payload.encode("utf8"))
+                request_bytes += "Content-Length: {}\r\n".format(length)
+            # request_bytes += "Host: {}\r\n".format(host).encode("utf8")
+            request_bytes += "Host: {}\r\n".format(host)
+            request_bytes += "\r\n" + (payload if payload else "")
             connection = "close"
-            request_bytes = "GET {} HTTP/1.1\r\n".format(path).encode("utf8") + "Host: {}\r\n".format(host).encode(
-                "utf8")
-            connection_header = "Connection: {}\r\n\r\n".format(connection).encode("utf8")
+            connection_header = "Connection: {}\r\n\r\n".format(connection)
             if not (header_list is None):
                 for head in header_list:
                     if head.name == "Connection":
-                        connection_header = "Connection: {}\r\n\r\n".format(head.value).encode("utf8")
+                        connection_header = "Connection: {}\r\n\r\n".format(head.value)
                         continue
                     heading = head.name + ": {}\r\n"
-                    request_bytes += heading.format(head.value).encode("utf8")
+                    request_bytes += heading.format(head.value)
             request_bytes += connection_header
-            s.send(request_bytes)
+            s.send(request_bytes.encode("utf8"))
             # print(len(request_bytes))
             # for i in range(0, len(request_bytes), 1024):  # Sending in chunks of 1024 bytes
             #     s.write(request_bytes[i:i + 1024])
@@ -109,7 +115,12 @@ class RequestHandler:
             # check for content encoding - decompress and then decode
             if 'content-encoding' in headers and headers['content-encoding'] == 'gzip':
                 body = zlib.decompressobj(32).decompress(body)
-            body = body.decode('utf8')
+            else:
+                try:
+                    body = body.decode('utf8')
+                except UnicodeDecodeError:
+                    body = body.decode('iso-8859-1')
+                    print(body)
             s.close()
             # Add Caching support
             if 'cache-control' in headers:

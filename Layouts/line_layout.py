@@ -1,3 +1,6 @@
+from Layouts.text_layout import TextLayout
+
+
 class LineLayout:
     def __init__(self, node, parent, previous, center_line=False):
         self.node = node
@@ -42,7 +45,8 @@ class LineLayout:
                 passed = find_passed(passed_words)
                 word.x = self.x + (self.width - line_length) / 2 + word.font.measure(passed)
             word.y = baseline - word.font.metrics("ascent")
-            passed_words.append(word.word)
+            if isinstance(word, TextLayout):
+                passed_words.append(word.word)
         max_descent = max([word.font.metrics("descent") for word in self.children])
         self.height = 1.25 * (max_ascent + max_descent)
 

@@ -1,5 +1,6 @@
 import os
 import sys
+import urllib.parse
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
@@ -36,7 +37,11 @@ class Tab:
         with open("browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
 
-    def load(self, url: str = None):
+    def load(self, url: str = None, body = None):
+        user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
+        accept_encoding_header = Header("Accept-Encoding", "gzip")
+        accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
+        header_list = [user_agent_header, accept_encoding_header, accept_language_header]
         try:
             headers, body = None, None
             if url is None:
@@ -49,11 +54,7 @@ class Tab:
                 self.url = "about:bookmarks"
                 self.history.append("about:bookmarks")
             else:
-                user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
-                accept_encoding_header = Header("Accept-Encoding", "gzip")
-                accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
-                header_list = [user_agent_header, accept_encoding_header, accept_language_header]
-                headers, body = self.rq.request(url, header_list)
+                headers, body = self.rq.request(url, header_list, body)
                 self.url = url
                 self.history.append(url)
             self.nodes = HTMLParser(body).parse()
@@ -74,8 +75,8 @@ class Tab:
                 else:
                     google_url += c
             # create headers list
-            header_list = {"User-Agent": "This is the PandaSurf Browser.", 'Accept-Language': 'en-US,en;q=0.9'}
-            headers, body = request_google(google_url, header_list)
+            headers, body = self.rq.request(google_url, header_list)
+            print("body: ", body)
             self.url = google_url
             self.history.append(google_url)
             self.nodes = HTMLParser(body).parse()
@@ -135,7 +136,6 @@ class Tab:
         style(self.nodes, sorted(self.rules, key=cascade_priority))
         # compute the layout to be displayed in the browser
         self.document.layout(self.WIDTH, self.font_delta, self.url)
-        self.document.layout()
         self.display_list = []
         self.document.paint(self.display_list)
 
@@ -191,6 +191,26 @@ class Tab:
                 if obj.node.attributes["id"] == identify:
                     last_x, last_y = obj.x, obj.y
         return last_x, last_y
+
+    def submit_form(self, elt):
+        # look through the descendants of the form to find input elements
+        inputs = [node for node in tree_to_list(elt, [])
+                  if isinstance(node, Element)
+                  and node.tag == "input"
+                  and "name" in node.attributes]
+        # extract name and value attributes, and form encode both of them
+        body = ""
+        for input in inputs:
+            name = input.attributes["name"]
+            value = input.attributes.get("value", "")
+            # replace special characters
+            name = urllib.parse.quote(name)
+            value = urllib.parse.quote(value)
+            body += "&" + name + "=" + value
+        body = body[1:]
+        # make a POST request
+        url = resolve_url(elt.attributes["action"], self.url)
+        self.load(url, body)
 
     def on_mouse_wheel(self, delta):
         if sys.platform.startswith('win'):
@@ -283,12 +303,3 @@ def tree_to_list(tree, array):
     for child in tree.children:
         tree_to_list(child, array)
     return array
-
-
-def request_google(url, headers_list):
-    import requests
-    # Send an HTTP GET request
-    response = requests.get(url, headers=headers_list)
-    # Access response headers
-    headers = response.headers
-    return headers, response.text
