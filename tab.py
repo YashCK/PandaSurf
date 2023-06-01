@@ -5,6 +5,7 @@ import dukpy
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
+from Helper.task import TaskRunner, Task
 from JSContext import JSContext
 from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
@@ -36,6 +37,7 @@ class Tab:
         self.rules = None
         self.js = None
         self.allowed_origins = None
+        self.task_runner = TaskRunner(self)
         # set bookmarks
         self.bookmarks = bookmarks
         # store browser's style sheet
@@ -128,10 +130,8 @@ class Tab:
                 print("Blocked script", script, "due to CSP")
                 continue
             header, body = self.rq.request(script_url, self.url)
-            try:
-                self.js.run(body)
-            except dukpy.JSRuntimeError as e:
-                print("Script", script, "crashed", e)
+            task = Task(self.run_script, script_url, body)
+            self.task_runner.schedule_task(task)
         # copy rules
         self.rules = self.default_style_sheet.copy()
         # grab the URL of each linked style sheet
@@ -321,6 +321,12 @@ class Tab:
     def raster(self, canvas):
         for cmd in self.display_list:
             cmd.execute(canvas)
+
+    def run_script(self, url, body):
+        try:
+            print("Script returned: ", self.js.run(body))
+        except dukpy.JSRuntimeError as e:
+            print("Script", url, "crashed", e)
 
 
 def cascade_priority(rule):
