@@ -46,6 +46,7 @@ class Browser:
         # surfaces
         self.chrome_surface = skia.Surface(self.WIDTH, self.CHROME_PX)
         self.tab_surface = None
+        self.scroll_surface = skia.Surface(self.WIDTH, self.HEIGHT - self.CHROME_PX)
         # manage tabs
         self.tabs = []
         self.active_tab = None
@@ -73,6 +74,13 @@ class Browser:
         self.raster_tab()
         self.draw()
 
+    def raster_scroll(self):
+        canvas = self.scroll_surface.getCanvas()
+        canvas.clear(skia.ColorWHITE)
+        if not self.scroll_surface:
+            self.scroll_surface = self.create_scroll_surface()
+        self.draw_scrollbar(canvas)
+
     def raster_tab(self):
         # draw the page to the tab_surface
         # create the tab surface if necessary
@@ -96,7 +104,6 @@ class Browser:
         self.draw_address_bar(canvas, button_font)
         self.draw_navigation_buttons(canvas)
         self.draw_bookmark_button(canvas)
-        self.draw_scrollbar(canvas)
 
     def draw(self):
         # clear canvas
@@ -115,6 +122,12 @@ class Browser:
         canvas.save()
         canvas.clipRect(chrome_rect)
         self.chrome_surface.draw(canvas, 0, 0)
+        canvas.restore()
+        # # copy from scroll surface to the root surface
+        scroll_rect = skia.Rect.MakeLTRB(self.WIDTH - self.HSTEP + 6, self.CHROME_PX, self.WIDTH, self.HEIGHT)
+        canvas.save()
+        canvas.clipRect(scroll_rect)
+        self.scroll_surface.draw(canvas, 0, self.CHROME_PX)
         canvas.restore()
         # make image interface to the Skia surface, but don't copy anything yet
         skia_image = self.root_surface.makeImageSnapshot()
@@ -201,16 +214,19 @@ class Browser:
         max_y = tab.document.height - self.HEIGHT
         if self.HEIGHT < max_y:
             amount_scrolled = (self.HEIGHT + tab.scroll) / max_y - self.HEIGHT / max_y
-            x2, y2 = self.WIDTH - 1, amount_scrolled * 0.9 * self.HEIGHT + self.HEIGHT / 10
-            rect = DrawRect(self.WIDTH - self.HSTEP + 6, amount_scrolled * 0.9 * self.HEIGHT, x2, y2, "purple")
+            x2, y2 = self.WIDTH - 1, amount_scrolled * 0.9 * (self.HEIGHT - self.CHROME_PX) + self.HEIGHT / 10
+            rect = DrawRect(self.WIDTH - self.HSTEP + 6, amount_scrolled * 0.9 * (self.HEIGHT - self.CHROME_PX),
+                            x2, y2, "purple")
             rect.execute(canvas)
 
     def handle_down(self):
         self.tabs[self.active_tab].scrolldown()
+        self.raster_scroll()
         self.draw()
 
     def handle_up(self):
         self.tabs[self.active_tab].scrollup()
+        self.raster_scroll()
         self.draw()
 
     def handle_click(self, e):
@@ -249,12 +265,16 @@ class Browser:
 
     def handle_mouse_wheel(self, scroll_x, scroll_y):
         self.tabs[self.active_tab].on_mouse_wheel(scroll_y)
+        self.raster_scroll()
         self.draw()
 
     def handle_configure(self, w, h):
         self.WIDTH = w
         self.HEIGHT = h
         self.tabs[self.active_tab].configure(w, h)
+        # change surfaces
+        self.tab_surface = None
+        self.scroll_surface = None
         self.raster_tab()
         self.raster_chrome()
         self.draw()
@@ -322,6 +342,12 @@ class Browser:
     def handle_quit(self):
         sdl2.SDL_DestroyWindow(self.window)
 
+    def create_scroll_surface(self):
+        desired_w = self.HSTEP - 6
+        active_tab = self.tabs[self.active_tab]
+        tab_height = math.ceil(active_tab.document.height)
+        return skia.Surface(desired_w, tab_height)
+
 
 # Main method
 if __name__ == "__main__":
@@ -369,3 +395,4 @@ if __name__ == "__main__":
             elif event.type == sdl2.SDL_WINDOWEVENT:
                 if event.window.event == sdl2.SDL_WINDOWEVENT_RESIZED:
                     browser.handle_configure(event.window.data1, event.window.data2)
+            browser.tabs[browser.active_tab].task_runner.run()
