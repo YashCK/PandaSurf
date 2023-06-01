@@ -1,10 +1,12 @@
 # Web pages are constructed out of blocks (headings, paragraphs, and menus) that are stacked
 # vertically one after another
+import skia
+
 from Helper.font_manager import get_font
 from Layouts.input_layout import InputLayout
 from Layouts.line_layout import LineLayout
 from Layouts.text_layout import TextLayout
-from Helper.draw import DrawRect
+from Helper.draw import DrawRect, DrawRRect, paint_visual_effects
 from Helper.tokens import Text, Element
 
 FONTS = {}
@@ -165,32 +167,32 @@ class BlockLayout:
         #         self.style_sheet.append(node.attributes["href"])
 
     def paint(self, display_list):
+        cmds = []
+        rect = skia.Rect.MakeLTRB(self.x, self.y, self.x + self.width, self.y + self.height)
         # browser can consult element for styling information
         bgcolor = self.node.style.get("background-color", "transparent")
-        # fix for when it encounters rgba and crashes
-        if bgcolor == "rgba" or bgcolor == "var":
-            bgcolor = "transparent"
         # draw background as long as it's not an input layout wrapped in a block layout
         is_atomic = not isinstance(self.node, Text) and (self.node.tag == "input" or self.node.tag == "button")
         if not is_atomic:
             if bgcolor != "transparent":
-                x2, y2 = self.x + self.width, self.y + self.height
-                rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
-                display_list.append(rect)
+                radius = float(self.node.style.get("border-radius", "0px")[:-2])
+                cmds.append(DrawRRect(rect, radius, bgcolor))
         # links bar
         if isinstance(self.node, Element) and self.node.tag == "nav":
             if ("class", "links") in self.node.attributes.items():
-                x2, y2 = self.x + self.width, self.y + self.height
-                rect = DrawRect(self.x, self.y, x2, y2, "light grey")
-                display_list.append(rect)
+                radius = float(self.node.style.get("border-radius", "0px")[:-2])
+                cmds.append(DrawRRect(rect, radius, "light grey"))
         # bullet points
         if isinstance(self.node, Element) and self.node.tag == "li":
             x2, y2 = self.x + 10, self.y + self.height / 2 + 5
-            rect = DrawRect(self.x + 5, self.y + self.height / 2, x2, y2, "black")
-            display_list.append(rect)
+            bullet = DrawRect(self.x + 5, self.y + self.height / 2, x2, y2, "black")
+            display_list.append(bullet)
         # apply the following for the node's children
         for child in self.children:
-            child.paint(display_list)
+            child.paint(cmds)
+        if not is_atomic:
+            cmds = paint_visual_effects(self.node, cmds, rect)
+        display_list.extend(cmds)
 
     def hyphenate_word(self, word, word_font):
         # find soft hyphen positions

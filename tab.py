@@ -10,7 +10,7 @@ from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
 from Requests.header import Header
 from Requests.request import resolve_url, RequestHandler, url_origin
-from Helper.draw import DrawRect, DrawLine
+from Helper.draw import DrawLine
 from Helper.style import style, tree_to_list
 from Helper.tokens import Text, Element
 
@@ -317,6 +317,10 @@ class Tab:
 
     def allowed_request(self, url):
         return self.allowed_origins is None or url_origin(url) in self.allowed_origins
+
+    def raster(self, canvas):
+        for cmd in self.display_list:
+            cmd.execute(canvas)
 
 
 def cascade_priority(rule):

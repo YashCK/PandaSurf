@@ -1,5 +1,7 @@
+import skia
+
 from Helper.font_manager import get_font, linespace
-from Helper.draw import DrawRect, DrawText
+from Helper.draw import DrawRect, DrawText, DrawRRect, paint_visual_effects
 from Helper.tokens import Text
 
 INPUT_WIDTH_PX = 200
@@ -19,21 +21,29 @@ class InputLayout:
 
     def layout(self, font_delta):
         self.font = get_font(self.node, font_delta)
-        self.width = INPUT_WIDTH_PX
+        # set up width
+        width = self.node.style.get('width')
+        self.width = to_pixel(width) if (width != "auto" and width is not None) else INPUT_WIDTH_PX
         if self.previous:
             space = self.previous.font.measureText(" ")
             self.x = self.previous.x + space + self.previous.width
         else:
             self.x = self.parent.x
-        self.height = linespace(self.font)
+        # set up height
+        height = self.node.style.get('height')
+        if height == "auto" or height is None:
+            self.height = linespace(self.font)
+        else:
+            self.height = to_pixel(height)
 
     def paint(self, display_list):
+        cmds = []
+        rect = skia.Rect.MakeLTRB(self.x, self.y, self.x + self.width, self.y + self.height)
         # draw the background
         bgcolor = self.node.style.get("background-color", "transparent")
         if bgcolor != "transparent":
-            x2, y2 = self.x + self.width, self.y + self.height
-            rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
-            display_list.append(rect)
+            radius = float(self.node.style.get("border-radius", "0px")[:-2])
+            cmds.append(DrawRRect(rect, radius, bgcolor))
         # get input element's text contents
         text = ""
         if self.node.tag == "input":
@@ -47,4 +57,11 @@ class InputLayout:
                 text = ""
         # draw the text
         color = self.node.style["color"]
-        display_list.append(DrawText(self.x, self.y, text, self.font, color))
+        cmds.append(DrawText(self.x, self.y, text, self.font, color))
+        cmds = paint_visual_effects(self.node, cmds, rect)
+        display_list.extend(cmds)
+
+
+def to_pixel(value):
+    value = value[:-2]
+    return int(value)
