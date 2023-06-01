@@ -1,5 +1,4 @@
 import os
-import sys
 import urllib.parse
 
 import dukpy
@@ -11,7 +10,7 @@ from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
 from Requests.header import Header
 from Requests.request import resolve_url, RequestHandler, url_origin
-from Helper.draw import DrawRect
+from Helper.draw import DrawRect, DrawLine
 from Helper.style import style, tree_to_list
 from Helper.tokens import Text, Element
 
@@ -21,6 +20,7 @@ class Tab:
     HSTEP, VSTEP = 13, 18
     SCROLL_STEP = 70
     CHROME_PX = 80
+    LAST_SCROLL = False  # Was not Down
 
     def __init__(self, bookmarks):
         self.rq = RequestHandler()
@@ -42,7 +42,7 @@ class Tab:
         with open("Sheets/browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
 
-    def load(self, url: str = None, body=None):
+    def load(self, url: str = None, payload=None):
         user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
         accept_encoding_header = Header("Accept-Encoding", "gzip")
         accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
@@ -59,7 +59,7 @@ class Tab:
                 self.url = "about:bookmarks"
                 self.history.append("about:bookmarks")
             else:
-                headers, body = self.rq.request(url, self.url, header_list, body)
+                headers, body = self.rq.request(url, self.url, header_list, payload)
                 self.url = url
                 self.history.append(url)
                 # extract and parse content of Content-Security-Policy header
@@ -102,25 +102,16 @@ class Tab:
             if cmd.bottom < self.scroll:
                 continue
             cmd.execute(self.scroll - self.CHROME_PX, canvas)
-        self.draw_scrollbar(canvas)
         # figure out where text entry is located
         if self.focus:
             obj = [obj for obj in tree_to_list(self.document, [])
                    if obj.node == self.focus and isinstance(obj, InputLayout)][0]
             # find coordinates of where cursor starts
             text = self.focus.attributes.get("value", "")
-            x = obj.x + obj.font.measure(text)
+            x = obj.x + obj.font.measureText(text)
             y = obj.y - self.scroll + self.CHROME_PX
             # draw the cursor
             canvas.create_line(x, y, x, y + obj.height)
-
-    def draw_scrollbar(self, canvas):
-        max_y = self.document.height - self.HEIGHT
-        if self.HEIGHT < max_y:
-            amount_scrolled = (self.HEIGHT + self.scroll) / max_y - self.HEIGHT / max_y
-            x2, y2 = self.WIDTH - 4, amount_scrolled * 0.9 * self.HEIGHT + self.HEIGHT / 10
-            rect = DrawRect(self.WIDTH - self.HSTEP, amount_scrolled * 0.9 * self.HEIGHT, x2, y2, "mediumpurple3")
-            rect.execute(0, canvas)
 
     def reload_document(self):
         # find all the scripts
@@ -169,6 +160,15 @@ class Tab:
         self.document.layout(self.WIDTH, self.font_delta, self.url)
         self.display_list = []
         self.document.paint(self.display_list)
+        # draw cursor if necessary
+        if self.focus:
+            obj = [obj for obj in tree_to_list(self.document, [])
+                   if obj.node == self.focus and
+                   isinstance(obj, InputLayout)][0]
+            text = self.focus.attributes.get("value", "")
+            x = obj.x + obj.font.measureText(text)
+            y = obj.y
+            self.display_list.append(DrawLine(x, y, x, y + obj.height))
 
     def configure(self, width, height):
         self.WIDTH = width
@@ -249,45 +249,31 @@ class Tab:
         self.load(url, body)
 
     def on_mouse_wheel(self, delta):
-        if sys.platform.startswith('win'):
-            if delta > 0:
-                self.mouse_scrolldown()
-            else:
-                self.mouse_scrollup()
-        elif sys.platform.startswith('darwin'):
-            if delta < 0:
-                self.mouse_scrolldown()
-            else:
-                self.mouse_scrollup()
+        if delta < 0 or delta == 0 and self.LAST_SCROLL:
+            self.scrolldown()
+            self.LAST_SCROLL = True
+        else:
+            self.scrollup()
+            self.LAST_SCROLL = False
 
     def key_press_handler(self, key):
         match key:
-            case 'plus':
+            case '+':
                 self.font_delta += 1
-                self.reload_document()
+                # self.reload_document()
                 self.render()
-            case 'minus':
+            case '-':
                 if self.font_delta > -10:
                     self.font_delta -= 1
-                    self.reload_document()
+                    # self.reload_document()
                     self.render()
 
     def keypress(self, char):
         if self.focus:
             if self.js.dispatch_event("keydown", self.focus): return
             self.focus.attributes["value"] += char
-            self.render()
-
-    def mouse_scrolldown(self):
-        max_y = self.document.height - (self.HEIGHT - self.CHROME_PX)
-        self.scroll = min(self.scroll + self.SCROLL_STEP / 3, max_y)
-
-    def mouse_scrollup(self):
-        if self.scroll > 0:
-            if self.scroll - self.SCROLL_STEP < 0:
-                self.scroll = 0
-            else:
-                self.scroll -= self.SCROLL_STEP / 3
+            # self.render()
+        self.document.paint(self.display_list)
 
     def scrolldown(self):
         max_y = self.document.height - (self.HEIGHT - self.CHROME_PX)

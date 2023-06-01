@@ -1,4 +1,4 @@
-import tkinter
+import skia
 
 FONTS = {}
 
@@ -37,8 +37,23 @@ def find_inherited_property(node, prop, default_val):
 
 
 def get_cached_font(family, size, weight, slant):
-    key = (family, size, weight, slant)
+    key = (family, weight, slant)
     if key not in FONTS:
-        font = tkinter.font.Font(family=family, size=size, weight=weight, slant=slant)
+        if weight == "bold":
+            skia_weight = skia.FontStyle.kBold_Weight
+        else:
+            skia_weight = skia.FontStyle.kNormal_Weight
+        if slant == "italic":
+            skia_style = skia.FontStyle.kItalic_Slant
+        else:
+            skia_style = skia.FontStyle.kUpright_Slant
+        skia_width = skia.FontStyle.kNormal_Width
+        style_info = skia.FontStyle(skia_weight, skia_width, skia_style)
+        font = skia.Typeface(family, style_info)
         FONTS[key] = font
-    return FONTS[key]
+    return skia.Font(FONTS[key], size)
+
+
+def linespace(font):
+    metrics = font.getMetrics()
+    return metrics.fDescent - metrics.fAscent

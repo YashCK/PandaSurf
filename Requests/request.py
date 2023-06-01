@@ -44,6 +44,7 @@ class RequestHandler:
             # make request to other server
             method = "POST" if payload else "GET"
             request_bytes = "{} {} HTTP/1.0\r\n".format(method, path)
+            request_bytes += "Host: {}\r\n".format(host)
             if host in COOKIE_JAR:
                 cookie, params = COOKIE_JAR[host]
                 allow_cookie = True
@@ -58,8 +59,6 @@ class RequestHandler:
             if payload:
                 length = len(payload.encode("utf8"))
                 request_bytes += "Content-Length: {}\r\n".format(length)
-            # request_bytes += "Host: {}\r\n".format(host).encode("utf8")
-            request_bytes += "Host: {}\r\n".format(host)
             request_bytes += "\r\n" + (payload if payload else "")
             connection = "close"
             connection_header = "Connection: {}\r\n\r\n".format(connection)
@@ -107,8 +106,9 @@ class RequestHandler:
                 if ";" in headers["set-cookie"]:
                     cookie, rest = headers["set-cookie"].split(";", 1)
                     for param_pair in rest.split(";"):
-                        name, value = param_pair.strip().split("=", 1)
-                        params[name.lower()] = value.lower()
+                        if '=' in param_pair:
+                            name, value = param_pair.strip().split("=", 1)
+                            params[name.lower()] = value.lower()
                 else:
                     cookie = headers["set-cookie"]
                 # store cookie/parameter pairs
@@ -122,7 +122,7 @@ class RequestHandler:
                         new_url = host + new_url
                         return parse_url(new_url)
                     else:
-                        return self.request(new_url)
+                        return self.request(new_url, top_level_url)
                 else:
                     raise ValueError
             # check for transfer encoding

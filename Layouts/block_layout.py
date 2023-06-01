@@ -1,6 +1,6 @@
 # Web pages are constructed out of blocks (headings, paragraphs, and menus) that are stacked
 # vertically one after another
-from Layouts.font_manager import get_font
+from Helper.font_manager import get_font
 from Layouts.input_layout import InputLayout
 from Layouts.line_layout import LineLayout
 from Layouts.text_layout import TextLayout
@@ -85,7 +85,7 @@ class BlockLayout:
             self.previous_word = text
             self.cursor_x += word_width
             if not pre_tag:
-                self.cursor_x += font.measure(" ")
+                self.cursor_x += font.measureText(" ")
 
         # calculate pre-tag
         pre_tag = to_bool(node.style["in-pre-tag"])
@@ -99,16 +99,16 @@ class BlockLayout:
         # find positions for all the words in the list
         for word in words:
             # add words to lines
-            w = font.measure(word)
+            w = font.measureText(word)
             if self.cursor_x + w > self.width:
                 first_word, second_word = self.hyphenate_word(word, font)
                 if first_word == "":  # no need to hyphenate
                     self.new_line(self.center_line)
                 else:
                     # add the first word to this line, go to next line, add second word to next line
-                    add_to_line(first_word, font.measure(first_word))
+                    add_to_line(first_word, font.measureText(first_word))
                     self.new_line(self.center_line)
-                    add_to_line(second_word, font.measure(second_word))
+                    add_to_line(second_word, font.measureText(second_word))
                     continue
             elif pre_tag and word == "\n":
                 self.new_line()
@@ -131,7 +131,7 @@ class BlockLayout:
         line.children.append(input_area)
         self.previous_word = input_area
         font = get_font(node, self.font_delta)
-        self.cursor_x += w + font.measure(" ")
+        self.cursor_x += w + font.measureText(" ")
 
     def recurse(self, node):
         if isinstance(node, Text):
@@ -170,9 +170,8 @@ class BlockLayout:
         # fix for when it encounters rgba and crashes
         if bgcolor == "rgba" or bgcolor == "var":
             bgcolor = "transparent"
-        # draw background as long as its not an input layout wrapped in a block layout
-        is_atomic = not isinstance(self.node, Text) and \
-                    (self.node.tag == "input" or self.node.tag == "button")
+        # draw background as long as it's not an input layout wrapped in a block layout
+        is_atomic = not isinstance(self.node, Text) and (self.node.tag == "input" or self.node.tag == "button")
         if not is_atomic:
             if bgcolor != "transparent":
                 x2, y2 = self.x + self.width, self.y + self.height
@@ -204,19 +203,13 @@ class BlockLayout:
         second_part = word
         for pos in hyphen_positions:
             first_word = word[:pos] + '-'
-            fw_width = word_font.measure(first_word)
+            fw_width = word_font.measureText(first_word)
             if self.cursor_x + fw_width < self.width:
                 first_part = first_word
                 second_part = word[pos + 1:]
             else:
                 break
         return first_part, second_part
-
-    def print_line(self):
-        print("the line: ")
-        for thing in self.line:
-            print(thing[1] + " ", end="")
-        print("")
 
 
 def layout_mode(node):

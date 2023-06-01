@@ -1,4 +1,4 @@
-from Layouts.font_manager import get_font
+from Helper.font_manager import get_font, linespace
 from Helper.draw import DrawRect, DrawText
 from Helper.tokens import Text
 
@@ -21,11 +21,11 @@ class InputLayout:
         self.font = get_font(self.node, font_delta)
         self.width = INPUT_WIDTH_PX
         if self.previous:
-            space = self.previous.font.measure(" ")
+            space = self.previous.font.measureText(" ")
             self.x = self.previous.x + space + self.previous.width
         else:
             self.x = self.parent.x
-        self.height = self.font.metrics("linespace")
+        self.height = linespace(self.font)
 
     def paint(self, display_list):
         # draw the background
@@ -35,6 +35,7 @@ class InputLayout:
             rect = DrawRect(self.x, self.y, x2, y2, bgcolor)
             display_list.append(rect)
         # get input element's text contents
+        text = ""
         if self.node.tag == "input":
             text = self.node.attributes.get("value", "")
         elif self.node.tag == "button":

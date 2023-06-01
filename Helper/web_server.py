@@ -107,10 +107,10 @@ def do_request(session, method, url, headers, body):
         add_entry(session, params)
         return "200 OK", show_comments(session)
     elif method == "GET" and url == "/comment.js":
-        with open("Sheets/comment.js") as f:
+        with open("../Sheets/comment.js") as f:
             return "200 OK", f.read()
     elif method == "GET" and url == "/comment.css":
-        with open("Sheets/comment.css") as f:
+        with open("../Sheets/comment.css") as f:
             return "200 OK", f.read()
     elif method == "GET" and url == "/login":
         return "200 OK", login_form(session)

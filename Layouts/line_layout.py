@@ -34,20 +34,20 @@ class LineLayout:
         if self.center_line:
             first_char_pos = self.children[0].x
             last_word_info = self.children[len(self.children) - 1]
-            last_char_pos = last_word_info.x + last_word_info.font.measure(last_word_info.word)
+            last_char_pos = last_word_info.x + last_word_info.font.measureText(last_word_info.word)
             line_length = last_char_pos - first_char_pos
         # calculate metrics to figure out the tallest word and where to put each word relative to the line
-        max_ascent = max([word.font.metrics("ascent") for word in self.children])
+        max_ascent = max([-word.font.getMetrics().fAscent for word in self.children])
         baseline = self.y + 1.25 * max_ascent
         passed_words = []
         for word in self.children:
             if self.center_line:
                 passed = find_passed(passed_words)
-                word.x = self.x + (self.width - line_length) / 2 + word.font.measure(passed)
-            word.y = baseline - word.font.metrics("ascent")
+                word.x = self.x + (self.width - line_length) / 2 + word.font.measureText(passed)
+            word.y = baseline + word.font.getMetrics().fAscent
             if isinstance(word, TextLayout):
                 passed_words.append(word.word)
-        max_descent = max([word.font.metrics("descent") for word in self.children])
+        max_descent = max([word.font.getMetrics().fDescent for word in self.children])
         self.height = 1.25 * (max_ascent + max_descent)
 
     def paint(self, display_list):

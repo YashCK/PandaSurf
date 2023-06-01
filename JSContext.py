@@ -1,5 +1,4 @@
 import dukpy
-from requests import request
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
@@ -14,16 +13,13 @@ class JSContext:
         self.tab = tab
         self.node_to_handle = {}
         self.handle_to_node = {}
-
         self.rq = RequestHandler()
-
         # export js functions to corresponding python functions
         self.interp = dukpy.JSInterpreter()
         self.interp.export_function("log", print)
         self.interp.export_function("querySelectorAll", self.query_selector_all)
         self.interp.export_function("getAttribute", self.get_attribute)
         self.interp.export_function("innerHTML_set", self.innerHTML_set)
-
         with open("Sheets/runtime.js") as f:
             self.interp.evaljs(f.read())
 
@@ -52,9 +48,9 @@ class JSContext:
         elt = self.handle_to_node[handle]
         return elt.attributes.get(attr, None)
 
-    def dispatch_event(self, type, elt):
+    def dispatch_event(self, event_type, elt):
         handle = self.node_to_handle.get(elt, -1)
-        do_default = self.interp.evaljs(EVENT_DISPATCH_CODE, type=type, handle=handle)
+        do_default = self.interp.evaljs(EVENT_DISPATCH_CODE, type=event_type, handle=handle)
         return not do_default
 
     def innerHTML_set(self, handle, s):

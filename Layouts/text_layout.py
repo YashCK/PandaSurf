@@ -1,4 +1,4 @@
-from Layouts.font_manager import get_font
+from Helper.font_manager import get_font, linespace
 from Helper.draw import DrawText
 
 FONTS = {}
@@ -26,17 +26,17 @@ class TextLayout:
         self.font = get_font(self.node, self.font_delta)
         # compute word’s size and x position
         # stack words left to write based on computed position
-        self.width = self.font.measure(self.word)
+        self.width = self.font.measureText(self.word)
         if self.previous:
             self.x = self.previous.x + self.previous.width
             if not self.in_pre_tag:
-                space = self.previous.font.measure(" ")
+                space = self.previous.font.measureText(" ")
                 self.x += space
         else:
             self.x = self.parent.x
             if self.in_bullet:
-                self.x += 10 + self.font.measure(" ")
-        self.height = self.font.metrics("linespace")
+                self.x += 10 + self.font.measureText(" ")
+        self.height = linespace(self.font)
 
     def paint(self, display_list):
         color = self.node.style["color"]
