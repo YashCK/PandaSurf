@@ -7,7 +7,9 @@ class Text(Token):
         self.text = text
         self.children = []
         self.parent = parent
-        self.style = None
+
+        self.style = {}
+        self.animations = {}
 
     def __repr__(self):
         return repr(self.text)
@@ -22,7 +24,9 @@ class Element(Token):
         self.attributes = attributes
         self.children = []
         self.parent = parent
-        self.style = None
+
+        self.style = {}
+        self.animations = {}
 
     def __repr__(self):
         return "<" + self.tag + ">"

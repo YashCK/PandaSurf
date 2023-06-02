@@ -46,6 +46,9 @@ class Tab:
         self.allowed_origins = None
         self.scroll_changed_in_tab = False
         self.needs_render = False
+        self.needs_style = False
+        self.needs_layout = False
+        self.needs_paint = False
         # start tasks
         if browser.single_threaded:
             self.task_runner = SingleThreadedTaskRunner(self)
@@ -155,27 +158,35 @@ class Tab:
         self.set_needs_render()
 
     def render(self):
-        if not self.needs_render: return
         self.measure_render.start_timing()
         # redo the styling, layout, paint and draw phases
         # apply style in cascading order
-        style(self.nodes, sorted(self.rules, key=cascade_priority))
-        self.document = DocumentLayout(self.nodes)
+        if self.needs_style:
+            style(self.nodes, sorted(self.rules, key=cascade_priority), self)
+            self.needs_layout = True
+            self.needs_style = False
         # compute the layout to be displayed in the browser
-        self.document.layout(self.WIDTH, self.font_delta, self.url)
-        self.display_list = []
-        self.document.paint(self.display_list)
-        # draw cursor if necessary
-        if self.focus:
-            obj = [obj for obj in tree_to_list(self.document, [])
-                   if obj.node == self.focus and
-                   isinstance(obj, InputLayout)][0]
-            text = self.focus.attributes.get("value", "")
-            x = obj.x + obj.font.measureText(text)
-            y = obj.y
-            self.display_list.append(DrawLine(x, y, x, y + obj.height))
+        if self.needs_layout:
+            self.document = DocumentLayout(self.nodes)
+            self.document.layout(self.WIDTH, self.font_delta, self.url)
+            self.needs_paint = True
+            self.needs_layout = False
+        # check if screen needs to be redrawn
+        if self.needs_paint:
+            self.display_list = []
+            self.document.paint(self.display_list)
+            # draw cursor if necessary
+            if self.focus:
+                obj = [obj for obj in tree_to_list(self.document, [])
+                       if obj.node == self.focus and \
+                       isinstance(obj, InputLayout)][0]
+                text = self.focus.attributes.get("value", "")
+                x = obj.x + obj.font.measureText(text)
+                y = obj.y
+                self.display_list.append(
+                    DrawLine(x, y, x, y + obj.height))
+            self.needs_paint = False
         self.measure_render.stop_timing()
-        self.needs_render = False
 
     def configure(self, width, height):
         if self.WIDTH != 1 and self.HEIGHT != 1:
@@ -305,13 +316,25 @@ class Tab:
         return self.allowed_origins is None or url_origin(url) in self.allowed_origins
 
     def set_needs_render(self):
-        self.needs_render = True
+        self.needs_style = True
         self.browser.set_needs_animation_frame(self)
 
     def run_animation_frame(self, scroll):
         if not self.scroll_changed_in_tab:
             self.scroll = scroll
         self.js.interp.evaljs("__runRAFHandlers()")
+        #  during an animation, run layout and paint, but not style
+        for node in tree_to_list(self.nodes, []):
+            for (property_name, animation) in node.animations.items():
+                value = animation.animate()
+                if value:
+                    node.style[property_name] = value
+                    if property_name == "opacity":
+                        self.composited_updates.append(node)
+                        self.set_needs_paint()
+                    else:
+                        self.set_needs_layout()
+        needs_composite = self.needs_style or self.needs_layout
         self.render()
         document_height = math.ceil(self.document.height)
         # set scroll_changed_in_tab when loading a new page or when
@@ -332,6 +355,10 @@ class Tab:
 
     def clamp_scroll(self, scroll, tab_height):
         return max(0, min(scroll, tab_height - (self.HEIGHT - self.CHROME_PX)))
+
+    def set_needs_layout(self):
+        self.needs_layout = True
+        self.browser.set_needs_animation_frame(self)
 
 
 def cascade_priority(rule):
