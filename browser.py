@@ -1,12 +1,15 @@
 import ctypes
 import math
 import threading
+import time
 
+import OpenGL.GL
 import sdl2
 import skia
 
-from Helper.draw import draw_line, draw_text, draw_rect, DrawRect
+from Helper.draw import draw_line, draw_text, draw_rect, DrawRect, DrawCompositedLayer
 from Helper.measure_time import MeasureTime
+from Helper.style import tree_to_list, add_parent_pointers
 from Helper.task import Task
 from tab import Tab
 
@@ -38,20 +41,37 @@ class Browser:
     def __init__(self, single_threaded):
         # set up window
         self.window = sdl2.SDL_CreateWindow(b"Browser",
-                                            sdl2.SDL_WINDOWPOS_CENTERED, sdl2.SDL_WINDOWPOS_CENTERED,
-                                            self.WIDTH, self.HEIGHT, sdl2.SDL_WINDOW_SHOWN)
+                                            sdl2.SDL_WINDOWPOS_CENTERED,
+                                            sdl2.SDL_WINDOWPOS_CENTERED,
+                                            self.WIDTH, self.HEIGHT,
+                                            sdl2.SDL_WINDOW_SHOWN | sdl2.SDL_WINDOW_OPENGL)
+        self.gl_context = sdl2.SDL_GL_CreateContext(self.window)
+        print(("OpenGL initialized: vendor={}," + "renderer={}").format(
+                OpenGL.GL.glGetString(OpenGL.GL.GL_VENDOR),
+                OpenGL.GL.glGetString(OpenGL.GL.GL_RENDERER)))
+        self.skia_context = skia.GrDirectContext.MakeGL()
         # set up surface to draw to
-        self.root_surface = skia.Surface.MakeRaster(
-            skia.ImageInfo.Make(
-                self.WIDTH, self.HEIGHT,
-                ct=skia.kRGBA_8888_ColorType,
-                at=skia.kUnpremul_AlphaType
-            )
-        )
+        self.root_surface = \
+            skia.Surface.MakeFromBackendRenderTarget(
+                self.skia_context,
+                skia.GrBackendRenderTarget(
+                    self.WIDTH, self.HEIGHT, 0, 0,
+                    skia.GrGLFramebufferInfo(0, OpenGL.GL.GL_RGBA8)),
+                skia.kBottomLeft_GrSurfaceOrigin,
+                skia.kRGBA_8888_ColorType,
+                skia.ColorSpace.MakeSRGB())
+        assert self.root_surface is not None
         # surfaces
-        self.chrome_surface = skia.Surface(self.WIDTH, self.CHROME_PX)
+        self.chrome_surface = skia.Surface.MakeRenderTarget(
+            self.skia_context, skia.Budgeted.kNo,
+            skia.ImageInfo.MakeN32Premul(self.WIDTH, self.CHROME_PX))
+        assert self.chrome_surface is not None
         self.tab_surface = None
-        self.scroll_surface = skia.Surface(self.WIDTH, self.HEIGHT - self.CHROME_PX)
+        # self.scroll_surface = skia.Surface.MakeRenderTarget(
+        #     self.skia_context, skia.Budgeted.kNo,
+        #     skia.ImageInfo.MakeN32Premul(self.WIDTH, self.HEIGHT - self.CHROME_PX))
+        self.scroll_surface = None
+        # assert self.scroll_surface is not None
         # manage tabs
         self.tabs = []
         self.active_tab = None
@@ -64,7 +84,8 @@ class Browser:
         self.needs_raster_and_draw = False
         self.animation_timer = None
         self.needs_animation_frame = True
-        self.measure_raster_and_draw = MeasureTime("raster-and-draw")
+        self.measure_composite_raster_and_draw = MeasureTime("composite-raster-and-draw")
+        self.composited_layers = []
         # information for commit
         self.lock = threading.Lock()
         self.url = None
@@ -95,22 +116,15 @@ class Browser:
         self.schedule_load(url)
 
     def raster_scroll(self):
-        canvas = self.scroll_surface.getCanvas()
-        canvas.clear(skia.ColorWHITE)
         if not self.scroll_surface:
             self.scroll_surface = self.create_scroll_surface()
+        canvas = self.scroll_surface.getCanvas()
+        canvas.clear(skia.ColorWHITE)
         self.draw_scrollbar(canvas)
 
     def raster_tab(self):
-        if self.active_tab_height is None: return
-        # draw the page to the tab_surface
-        # create the tab surface if necessary
-        if not self.tab_surface or self.active_tab_height != self.tab_surface.height():
-            self.tab_surface = skia.Surface(self.WIDTH, self.active_tab_height)
-        # clear canvas
-        canvas = self.tab_surface.getCanvas()
-        canvas.clear(skia.ColorWHITE)
-        raster(self.active_tab_display_list, canvas)
+        for composited_layer in self.composited_layers:
+            composited_layer.raster()
 
     def raster_chrome(self):
         # draw the browser chrome to the chrome_surface
@@ -125,18 +139,14 @@ class Browser:
         self.draw_bookmark_button(canvas)
 
     def draw(self):
-        # clear canvas
+        # set up canvas
         canvas = self.root_surface.getCanvas()
         canvas.clear(skia.ColorWHITE)
-        # copy from the tab surface to the root surface
-        if self.tab_surface:
-            tab_rect = skia.Rect.MakeLTRB(0, self.CHROME_PX, self.WIDTH, self.HEIGHT)
-            tab_offset = self.CHROME_PX - self.scroll
-            canvas.save()
-            canvas.clipRect(tab_rect)
-            canvas.translate(0, tab_offset)
-            self.tab_surface.draw(canvas, 0, 0)
-            canvas.restore()
+        canvas.save()
+        canvas.translate(0, self.CHROME_PX - self.scroll)
+        for item in self.draw_list:
+            item.execute(canvas)
+        canvas.restore()
         # copy from chrome surface to the root surface
         chrome_rect = skia.Rect.MakeLTRB(0, 0, self.WIDTH, self.CHROME_PX)
         canvas.save()
@@ -149,22 +159,9 @@ class Browser:
         canvas.clipRect(scroll_rect)
         self.scroll_surface.draw(canvas, 0, self.CHROME_PX)
         canvas.restore()
-        # make image interface to the Skia surface, but don't copy anything yet
-        skia_image = self.root_surface.makeImageSnapshot()
-        skia_bytes = skia_image.tobytes()
-        depth = 32  # Bits per pixel
-        pitch = 4 * self.WIDTH  # Bytes per row
-        # wrap data in a sdl surface
-        sdl_surface = sdl2.SDL_CreateRGBSurfaceFrom(
-            skia_bytes, self.WIDTH, self.HEIGHT, depth, pitch,
-            self.RED_MASK, self.GREEN_MASK,
-            self.BLUE_MASK, self.ALPHA_MASK)
-        # draw all pixel data on the window itself
-        rect = sdl2.SDL_Rect(0, 0, self.WIDTH, self.HEIGHT)
-        window_surface = sdl2.SDL_GetWindowSurface(self.window)
-        # copy all the pixels
-        sdl2.SDL_BlitSurface(sdl_surface, rect, window_surface, rect)
-        sdl2.SDL_UpdateWindowSurface(self.window)
+        # flush the skia surface and swap windows
+        self.root_surface.flushAndSubmit()
+        sdl2.SDL_GL_SwapWindow(self.window)
 
     def draw_tabs(self, canvas, button_font):
         # tabs
@@ -372,31 +369,42 @@ class Browser:
         self.lock.release()
 
     def handle_quit(self):
-        print(self.measure_raster_and_draw.text())
+        print(self.measure_composite_raster_and_draw.text())
         self.tabs[self.active_tab].task_runner.set_needs_quit()
+        sdl2.SDL_DestroyWindow(self.window)
+        sdl2.SDL_GL_DeleteContext(self.gl_context)
         sdl2.SDL_DestroyWindow(self.window)
 
     def create_scroll_surface(self):
-        desired_w = self.HSTEP - 6
-        active_tab = self.tabs[self.active_tab]
-        tab_height = math.ceil(active_tab.document.height)
-        return skia.Surface(desired_w, tab_height)
+        surface = skia.Surface.MakeRenderTarget(
+            self.skia_context, skia.Budgeted.kNo,
+            skia.ImageInfo.MakeN32Premul(self.WIDTH, self.HEIGHT - self.CHROME_PX))
+        assert surface is not None
+        return surface
 
     def set_needs_raster_and_draw(self):
         self.needs_raster_and_draw = True
 
-    def raster_and_draw(self):
+    def composite_raster_and_draw(self):
         self.lock.acquire(blocking=True)
-        if not self.needs_raster_and_draw:
+        if not self.needs_composite and \
+            len(self.composited_updates) == 0 \
+            and not self.needs_raster and not self.needs_draw:
             self.lock.release()
             return
-        self.measure_raster_and_draw.start_timing()
-        self.raster_chrome()
-        self.raster_tab()
-        self.raster_scroll()
-        self.draw()
-        self.measure_raster_and_draw.stop_timing()
-        self.needs_raster_and_draw = False
+        self.measure_composite_raster_and_draw.start_timing()
+        if self.needs_composite:
+            self.composite()
+        if self.needs_raster:
+            self.raster_chrome()
+            self.raster_tab()
+        if self.needs_draw:
+            self.paint_draw_list()
+            self.draw()
+        self.measure_composite_raster_and_draw.stop_timing()
+        self.needs_composite = False
+        self.needs_raster = False
+        self.needs_draw = False
         self.lock.release()
 
     def set_needs_animation_frame(self, tab):
@@ -460,6 +468,27 @@ class Browser:
         else:
             return max(0, scroll)
 
+    def composite(self):
+        add_parent_pointers(self.active_tab_display_list)
+        self.composited_layers = []
+        all_commands = []
+        for cmd in self.active_tab_display_list:
+            all_commands = tree_to_list(cmd, all_commands)
+        paint_commands = [cmd for cmd in all_commands if cmd.is_paint_command()]
+
+    def paint_draw_list(self):
+        self.draw_list = []
+        for composited_layer in self.composited_layers:
+            # for each composited layer, create a DrawCompositedLayer command
+            current_effect = DrawCompositedLayer(composited_layer)
+            if not composited_layer.display_items: continue
+            # wrap the DrawCompositedLayer in each visual effect that applies to that composited layer
+            parent = composited_layer.display_items[0].parent
+            while parent:
+                current_effect = parent.clone([current_effect])
+                parent = parent.parent
+            self.draw_list.append(current_effect)
+
 
 def raster(display_list, canvas):
     for cmd in display_list:
@@ -516,5 +545,5 @@ if __name__ == "__main__":
                     browser.needs_animation_frame = False
                     browser.render()
             # schedule a new rendering task every 16 milliseconds
-            browser.raster_and_draw()
+            browser.composite_raster_and_draw()
             browser.schedule_animation_frame()

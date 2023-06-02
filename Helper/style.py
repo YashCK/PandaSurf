@@ -67,3 +67,9 @@ def tree_to_list(tree, array):
     for child in tree.children:
         tree_to_list(child, array)
     return array
+
+
+def add_parent_pointers(nodes, parent=None):
+    for node in nodes:
+        node.parent = parent
+        add_parent_pointers(node.children, node)

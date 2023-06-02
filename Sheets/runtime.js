@@ -1,17 +1,26 @@
 console = { log: function(x) { call_python("log", x); } }
 
 document = { querySelectorAll: function(s) {
-    var handles = call_python("query_selector_all", s);
+    var handles = call_python("querySelectorAll", s);
     return handles.map(function(h) { return new Node(h) });
 }}
 
 function Node(handle) { this.handle = handle; }
 
 Node.prototype.getAttribute = function(attr) {
-    return call_python("get_attribute", this.handle, attr);
+    return call_python("getAttribute", this.handle, attr);
 }
 
 LISTENERS = {}
+
+function Event(type) {
+    this.type = type
+    this.do_default = true;
+}
+
+Event.prototype.preventDefault = function() {
+    this.do_default = false;
+}
 
 Node.prototype.addEventListener = function(type, listener) {
     if (!LISTENERS[this.handle]) LISTENERS[this.handle] = {};
@@ -27,36 +36,21 @@ Object.defineProperty(Node.prototype, 'innerHTML', {
     }
 });
 
+Object.defineProperty(Node.prototype, 'style', {
+    set: function(s) {
+        call_python("style_set", this.handle, s.toString());
+    }
+});
+
+
 Node.prototype.dispatchEvent = function(evt) {
     var type = evt.type;
-    var handle = this.handle;
+    var handle = this.handle
     var list = (LISTENERS[handle] && LISTENERS[handle][type]) || [];
     for (var i = 0; i < list.length; i++) {
         list[i].call(this, evt);
     }
     return evt.do_default;
-}
-
-function Event(type) {
-    this.type = type
-    this.do_default = true;
-}
-
-Event.prototype.preventDefault = function() {
-    this.do_default = false;
-}
-
-function XMLHttpRequest() {}
-
-XMLHttpRequest.prototype.open = function(method, url, is_async) {
-    if (is_async) throw Error("Asynchronous XHR is not supported");
-    this.method = method;
-    this.url = url;
-}
-
-XMLHttpRequest.prototype.send = function(body) {
-    this.responseText = call_python("XMLHttpRequest_send",
-        this.method, this.url, body);
 }
 
 SET_TIMEOUT_REQUESTS = {}
@@ -87,7 +81,7 @@ XMLHttpRequest.prototype.open = function(method, url, is_async) {
 
 XMLHttpRequest.prototype.send = function(body) {
     this.responseText = call_python("XMLHttpRequest_send",
-        this.method, this.url, body, this.is_async, this.handle);
+        this.method, this.url, this.body, this.is_async, this.handle);
 }
 
 function __runXHROnload(body, handle) {
@@ -96,6 +90,11 @@ function __runXHROnload(body, handle) {
     obj.responseText = body;
     if (obj.onload)
         obj.onload(evt);
+}
+
+function Date() {}
+Date.now = function() {
+    return call_python("now");
 }
 
 RAF_LISTENERS = [];
@@ -114,9 +113,4 @@ function __runRAFHandlers() {
     for (var i = 0; i < handlers_copy.length; i++) {
         handlers_copy[i]();
     }
-}
-
-function Date() {}
-Date.now = function() {
-    return call_python("now");
 }

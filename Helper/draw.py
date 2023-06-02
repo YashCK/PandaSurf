@@ -1,40 +1,67 @@
 import skia
 
 
-class DrawText:
+class DisplayItem:
+    def __init__(self, rect, children=[], node=None):
+        self.rect = rect
+        self.children = children
+        self.node = node
+        self.needs_compositing = any([
+            child.needs_compositing for child in self.children
+        ])
+
+    def is_paint_command(self):
+        return False
+
+    def map(self, rect):
+        return rect
+
+    def add_composited_bounds(self, rect):
+        rect.join(self.rect)
+        for cmd in self.children:
+            cmd.add_composited_bounds(rect)
+
+
+class DrawText(DisplayItem):
     def __init__(self, x1, y1, text, font, color):
         self.left = x1
         self.top = y1
         self.right = x1 + font.measureText(text)
         self.bottom = y1 - font.getMetrics().fAscent + font.getMetrics().fDescent
-        self.rect = skia.Rect.MakeLTRB(x1, y1, self.right, self.bottom)
         self.font = font
         self.text = text
         self.color = color
+        super().__init__(skia.Rect.MakeLTRB(x1, y1, self.right, self.bottom))
 
     def execute(self, canvas):
         draw_text(canvas, self.left, self.top, self.text, self.font, self.color)
 
+    def is_paint_command(self):
+        return True
 
-class DrawRect:
+
+class DrawRect(DisplayItem):
     def __init__(self, x1, y1, x2, y2, color):
+        super().__init__(skia.Rect.MakeLTRB(x1, y1, x2, y2))
         self.top = y1
         self.left = x1
         self.bottom = y2
         self.right = x2
         self.color = color
-        self.rect = skia.Rect.MakeLTRB(x1, y1, x2, y2)
 
     def execute(self, canvas):
         draw_rect(canvas,
                   self.left, self.top,
                   self.right, self.bottom,
-                  fill=self.color, width=0)
+                  fill_color=self.color, width=0)
+
+    def is_paint_command(self):
+        return True
 
 
-class DrawLine:
+class DrawLine(DisplayItem):
     def __init__(self, x1, y1, x2, y2):
-        self.rect = skia.Rect.MakeLTRB(x1, y1, x2, y2)
+        super().__init__(skia.Rect.MakeLTRB(x1, y1, x2, y2))
         self.x1 = x1
         self.y1 = y1
         self.x2 = x2
@@ -43,10 +70,13 @@ class DrawLine:
     def execute(self, canvas):
         draw_line(canvas, self.x1, self.y1, self.x2, self.y2)
 
+    def is_paint_command(self):
+        return True
 
-class DrawRRect:
+
+class DrawRRect(DisplayItem):
     def __init__(self, rect, radius, color):
-        self.rect = rect
+        super().__init__(rect)
         self.rrect = skia.RRect.MakeRectXY(rect, radius, radius)
         self.color = color
 
@@ -54,44 +84,112 @@ class DrawRRect:
         sk_color = parse_color(self.color)
         canvas.drawRRect(self.rrect, paint=skia.Paint(Color=sk_color))
 
-
-class SaveLayer:
-    def __init__(self, sk_paint, children, should_save=True, should_paint_cmds=True):
-        self.should_save = should_save
-        self.should_paint_cmds = should_paint_cmds
-        self.sk_paint = sk_paint
-        self.children = children
-        self.rect = skia.Rect.MakeEmpty()
-        for cmd in self.children:
-            self.rect.join(cmd.rect)
-
-    def execute(self, canvas):
-        if self.should_save:
-            canvas.saveLayer(paint=self.sk_paint)
-        if self.should_paint_cmds:
-            for cmd in self.children:
-                cmd.execute(canvas)
-        if self.should_save:
-            canvas.restore()
+    def is_paint_command(self):
+        return True
 
 
-class ClipRRect:
+class ClipRRect(DisplayItem):
     def __init__(self, rect, radius, children, should_clip=True):
-        self.rect = rect
-        self.rrect = skia.RRect.MakeRectXY(rect, radius, radius)
-        self.children = children
+        super().__init__(rect, children)
         self.should_clip = should_clip
+        self.radius = radius
+        self.rrect = skia.RRect.MakeRectXY(rect, radius, radius)
 
     def execute(self, canvas):
         if self.should_clip:
             canvas.save()
             canvas.clipRRect(self.rrect)
-
         for cmd in self.children:
             cmd.execute(canvas)
-
         if self.should_clip:
             canvas.restore()
+
+    def clone(self, children):
+        return ClipRRect(self.rect, self.radius, children, self.should_clip)
+
+
+class SaveLayer(DisplayItem):
+    def __init__(self, sk_paint, node, children, should_save=True):
+        super().__init__(skia.Rect.MakeEmpty(), children, node)
+        self.should_save = should_save
+        self.sk_paint = sk_paint
+        if should_save:
+            self.needs_compositing = True
+
+    def execute(self, canvas):
+        if self.should_save:
+            canvas.saveLayer(paint=self.sk_paint)
+        for cmd in self.children:
+            cmd.execute(canvas)
+        if self.should_save:
+            canvas.restore()
+
+    def clone(self, children):
+        # create a new SaveLayer with the same parameters but new children
+        return SaveLayer(self.sk_paint, self.node, children, self.should_save)
+
+
+class CompositedLayer:
+    def __init__(self, skia_context, display_item):
+        self.skia_context = skia_context
+        self.surface = None
+        self.display_items = [display_item]
+        self.parent = display_item.parent
+
+    def can_merge(self, display_item):
+        return display_item.parent == self.display_items[0].parent
+
+    def add(self, display_item):
+        assert self.can_merge(display_item)
+        self.display_items.append(display_item)
+
+    def composited_bounds(self):
+        rect = skia.Rect.MakeEmpty()
+        for item in self.display_items:
+            item.add_composited_bounds(rect)
+        return rect
+
+    def absolute_bounds(self):
+        rect = skia.Rect.MakeEmpty()
+        for item in self.display_items:
+            rect.join(absolute_bounds(item))
+        return rect
+
+    def raster(self):
+        bounds = self.composited_bounds()
+        if bounds.isEmpty(): return
+        irect = bounds.roundOut()
+        # create surface of the right size
+        if not self.surface:
+            self.surface = skia.Surface.MakeRenderTarget(
+                self.skia_context, skia.Budgeted.kNo,
+                skia.ImageInfo.MakeN32Premul(
+                    irect.width(), irect.height()))
+            if not self.surface:
+                self.surface = skia.Surface(irect.width(), irect.height())
+            assert self.surface
+        canvas = self.surface.getCanvas()
+        # offset by the top and left of the composited bounds
+        canvas.clear(skia.ColorTRANSPARENT)
+        canvas.save()
+        canvas.translate(-bounds.left(), -bounds.top())
+        for item in self.display_items:
+            item.execute(canvas)
+        canvas.restore()
+        draw_rect(canvas, 0, 0, irect.width() - 1, irect.height() - 1, border_color="red")
+
+
+class DrawCompositedLayer(DisplayItem):
+    def __init__(self, composited_layer):
+        self.composited_layer = composited_layer
+        super().__init__(self.composited_layer.composited_bounds())
+
+    def execute(self, canvas):
+        # draw surface into parent surface with the correct offset
+        layer = self.composited_layer
+        if not layer.surface: return
+        bounds = layer.composited_bounds()
+        layer.surface.draw(canvas, bounds.left(), bounds.top())
 
 
 def parse_color(color):
@@ -181,3 +279,13 @@ def paint_visual_effects(node, cmds, rect):
             ClipRRect(rect, clip_radius, cmds, should_clip=needs_clip),
         ], should_save=needs_blend_isolation),
     ]
+
+
+def absolute_bounds(display_item):
+    rect = skia.Rect.MakeEmpty()
+    display_item.add_composited_bounds(rect)
+    effect = display_item.parent
+    while effect:
+        rect = effect.map(rect)
+        effect = effect.parent
+    return rect

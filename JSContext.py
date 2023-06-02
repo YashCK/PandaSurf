@@ -30,6 +30,7 @@ class JSContext:
         self.interp.export_function("setTimeout", self.setTimeout)
         self.interp.export_function("requestAnimationFrame", self.requestAnimationFrame)
         self.interp.export_function("now", self.now)
+        self.interp.export_function("style_set", self.style_set)
         # open javascript sheet
         with open("Sheets/runtime.js") as f:
             self.interp.evaljs(f.read())
@@ -121,3 +122,10 @@ class JSContext:
     def dispatch_xhr_onload(self, out, handle):
         do_default = self.interp.evaljs(
             XHR_ONLOAD_CODE, out=out, handle=handle)
+
+    def style_set(self, handle, s):
+        # support changing an element’s style attribute from JavaScript
+        elt = self.handle_to_node[handle]
+        elt.attributes["style"] = s;
+        # make sure browser rerenders the page
+        self.tab.set_needs_render()
