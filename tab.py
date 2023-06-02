@@ -1,11 +1,12 @@
+import math
 import os
 import urllib.parse
 
-import dukpy
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
-from Helper.task import TaskRunner, Task
+from Helper.measure_time import MeasureTime
+from Helper.task import TaskRunner, Task, CommitForRaster
 from JSContext import JSContext
 from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
@@ -23,28 +24,42 @@ class Tab:
     CHROME_PX = 80
     LAST_SCROLL = False  # Was not Down
 
-    def __init__(self, bookmarks):
+    def __init__(self, browser, bookmarks):
+        # to set up display
         self.rq = RequestHandler()
         self.nodes = None
         self.url = None
         self.document = None
         self.display_list = []
+        # what should be shown on screen
         self.font_delta = 0
+        # browser info
         self.scroll = 0
         self.history = []
         self.future = []
+        self.bookmarks = bookmarks
         self.focus = None
         self.rules = None
         self.js = None
+        # what has changed
+        self.browser = browser
         self.allowed_origins = None
+        self.scroll_changed_in_tab = False
+        self.needs_render = False
+        # start tasks
         self.task_runner = TaskRunner(self)
-        # set bookmarks
-        self.bookmarks = bookmarks
+        self.task_runner.start_thread()
+        self.measure_render = MeasureTime("render")
         # store browser's style sheet
         with open("Sheets/browser.css") as f:
             self.default_style_sheet = CSSParser(f.read()).parse()
 
     def load(self, url: str = None, payload=None):
+        self.scroll = 0
+        # reset pages and tasks
+        self.scroll_changed_in_tab = True
+        self.task_runner.clear_pending_tasks()
+        # create headers
         user_agent_header = Header("User-Agent", "This is the PandaSurf Browser.")
         accept_encoding_header = Header("Accept-Encoding", "gzip")
         accept_language_header = Header('Accept-Language', 'en-US,en;q=0.9', )
@@ -78,7 +93,7 @@ class Tab:
             #     with open("external.css") as f:
             #         self.default_style_sheet = CSSParser(f.read()).parse()
             self.reload_document()
-            self.render()
+            self.set_needs_render()
         except FileNotFoundError:
             print("The path to the file you entered does not exist.")
         except ValueError:
@@ -95,25 +110,6 @@ class Tab:
             self.history.append(google_url)
             self.nodes = HTMLParser(body).parse()
             self.reload_document()
-            self.render()
-
-    def draw(self, canvas):
-        for cmd in self.display_list:
-            if cmd.top > self.scroll + self.HEIGHT:
-                continue
-            if cmd.bottom < self.scroll:
-                continue
-            cmd.execute(self.scroll - self.CHROME_PX, canvas)
-        # figure out where text entry is located
-        if self.focus:
-            obj = [obj for obj in tree_to_list(self.document, [])
-                   if obj.node == self.focus and isinstance(obj, InputLayout)][0]
-            # find coordinates of where cursor starts
-            text = self.focus.attributes.get("value", "")
-            x = obj.x + obj.font.measureText(text)
-            y = obj.y - self.scroll + self.CHROME_PX
-            # draw the cursor
-            canvas.create_line(x, y, x, y + obj.height)
 
     def reload_document(self):
         # find all the scripts
@@ -130,7 +126,7 @@ class Tab:
                 print("Blocked script", script, "due to CSP")
                 continue
             header, body = self.rq.request(script_url, self.url)
-            task = Task(self.run_script, script_url, body)
+            task = Task(self.js.run, script_url, body)
             self.task_runner.schedule_task(task)
         # copy rules
         self.rules = self.default_style_sheet.copy()
@@ -144,14 +140,20 @@ class Tab:
         # browser can request each linked style sheet and add its rules to the rules list
         for link in links:
             style_url = resolve_url(link, self.url)
+            if not self.allowed_request(style_url):
+                print("Blocked style", link, "due to CSP")
+                continue
             try:
                 header, body = self.rq.request(style_url, self.url)
             except:
                 # ignores style sheets that fail to download
                 continue
             self.rules.extend(CSSParser(body).parse())
+        self.set_needs_render()
 
     def render(self):
+        if not self.needs_render: return
+        self.measure_render.start_timing()
         # redo the styling, layout, paint and draw phases
         # apply style in cascading order
         style(self.nodes, sorted(self.rules, key=cascade_priority))
@@ -169,15 +171,18 @@ class Tab:
             x = obj.x + obj.font.measureText(text)
             y = obj.y
             self.display_list.append(DrawLine(x, y, x, y + obj.height))
+        self.measure_render.stop_timing()
+        self.needs_render = False
 
     def configure(self, width, height):
-        self.WIDTH = width
-        self.HEIGHT = height
         if self.WIDTH != 1 and self.HEIGHT != 1:
+            self.WIDTH = width
+            self.HEIGHT = height
             self.reload_document()
-            self.render()
 
     def click(self, x, y):
+        self.render()
+        self.focus = None
         # account for scrolling
         y += self.scroll
         # what elements are at the location
@@ -185,8 +190,7 @@ class Tab:
                 if obj.x <= x < obj.x + obj.width
                 and obj.y <= y < obj.y + obj.height]
         # which object is closest to the top
-        if not objs:
-            return
+        if not objs: return
         elt = objs[-1].node
         # climb html tree to find element
         while elt:
@@ -199,16 +203,17 @@ class Tab:
                     self.url = resolve_url(word_to_find, self.url)
                     loc = self.find_location(elt.attributes.get("href"))
                     if loc is not None:
-                        self.scroll = loc[1]
+                        self.browser.scroll = loc[1]
                 else:
                     # extract url and load it
                     url = resolve_url(elt.attributes["href"], self.url)
                     return self.load(url)
             elif elt.tag == "input":
-                if self.js.dispatch_event("click", elt): return
                 elt.attributes["value"] = ""
+                if elt != self.focus:
+                    self.set_needs_render()
                 self.focus = elt
-                return self.render()
+                return
             elif elt.tag == "button":
                 if self.js.dispatch_event("click", elt): return
                 while elt:
@@ -248,43 +253,21 @@ class Tab:
         url = resolve_url(elt.attributes["action"], self.url)
         self.load(url, body)
 
-    def on_mouse_wheel(self, delta):
-        if delta < 0 or delta == 0 and self.LAST_SCROLL:
-            self.scrolldown()
-            self.LAST_SCROLL = True
-        else:
-            self.scrollup()
-            self.LAST_SCROLL = False
-
     def key_press_handler(self, key):
         match key:
             case '+':
                 self.font_delta += 1
-                # self.reload_document()
-                self.render()
+                self.set_needs_render()
             case '-':
                 if self.font_delta > -10:
                     self.font_delta -= 1
-                    # self.reload_document()
-                    self.render()
+                    self.set_needs_render()
 
     def keypress(self, char):
         if self.focus:
             if self.js.dispatch_event("keydown", self.focus): return
             self.focus.attributes["value"] += char
-            # self.render()
-        self.document.paint(self.display_list)
-
-    def scrolldown(self):
-        max_y = self.document.height - (self.HEIGHT - self.CHROME_PX)
-        self.scroll = min(self.scroll + self.SCROLL_STEP, max_y)
-
-    def scrollup(self):
-        if self.scroll > 0:
-            if self.scroll - self.SCROLL_STEP < 0:
-                self.scroll = 0
-            else:
-                self.scroll -= self.SCROLL_STEP
+            self.set_needs_render()
 
     def go_back(self):
         if len(self.history) > 1:
@@ -294,7 +277,7 @@ class Tab:
             self.load(back)
 
     def go_forward(self):
-        if len(self.future) > 1:
+        if len(self.future) >= 1:
             ahead = self.future.pop()
             self.load(ahead)
 
@@ -318,15 +301,34 @@ class Tab:
     def allowed_request(self, url):
         return self.allowed_origins is None or url_origin(url) in self.allowed_origins
 
-    def raster(self, canvas):
-        for cmd in self.display_list:
-            cmd.execute(canvas)
+    def set_needs_render(self):
+        self.needs_render = True
+        self.browser.set_needs_animation_frame(self)
 
-    def run_script(self, url, body):
-        try:
-            print("Script returned: ", self.js.run(body))
-        except dukpy.JSRuntimeError as e:
-            print("Script", url, "crashed", e)
+    def run_animation_frame(self, scroll):
+        if not self.scroll_changed_in_tab:
+            self.scroll = scroll
+        self.js.interp.evaljs("__runRAFHandlers()")
+        self.render()
+        document_height = math.ceil(self.document.height)
+        # set scroll_changed_in_tab when loading a new page or when
+        # browser thread’s scroll offset is past the bottom of page
+        clamped_scroll = self.clamp_scroll(self.scroll, document_height)
+        if clamped_scroll != self.scroll:
+            self.scroll_changed_in_tab = True
+        self.scroll = clamped_scroll
+        # If main thread has not overridden the browser’s scroll offset, set scroll offset to None
+        scroll = None
+        if self.scroll_changed_in_tab:
+            scroll = self.scroll
+        # commit data
+        commit_data = CommitForRaster(self.url, scroll, document_height, self.display_list)
+        self.display_list = None
+        self.browser.commit(self, commit_data)
+        self.scroll_changed_in_tab = False
+
+    def clamp_scroll(self, scroll, tab_height):
+        return max(0, min(scroll, tab_height - (self.HEIGHT - self.CHROME_PX)))
 
 
 def cascade_priority(rule):

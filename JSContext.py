@@ -1,4 +1,5 @@
 import threading
+import time
 
 import dukpy
 
@@ -25,12 +26,19 @@ class JSContext:
         self.interp.export_function("querySelectorAll", self.query_selector_all)
         self.interp.export_function("getAttribute", self.get_attribute)
         self.interp.export_function("innerHTML_set", self.innerHTML_set)
+        self.interp.export_function("XMLHttpRequest_send",self.XMLHttpRequest_send)
         self.interp.export_function("setTimeout", self.setTimeout)
+        self.interp.export_function("requestAnimationFrame", self.requestAnimationFrame)
+        self.interp.export_function("now", self.now)
+        # open javascript sheet
         with open("Sheets/runtime.js") as f:
             self.interp.evaljs(f.read())
 
-    def run(self, code):
-        return self.interp.evaljs(code)
+    def run(self, script, code):
+        try:
+            print("Script returned: ", self.interp.evaljs(code))
+        except dukpy.JSRuntimeError as e:
+            print("Script", script, "crashed", e)
 
     def query_selector_all(self, selector_text):
         # find all nodes matching a selector
@@ -63,10 +71,9 @@ class JSContext:
         elt.children = new_nodes
         for child in elt.children:
             child.parent = elt
-        # modify the web page
-        self.tab.render()
+        self.tab.set_needs_render()
 
-    def XMLHttpRequest_send(self, method, url, body):
+    def XMLHttpRequest_send(self, method, url, body, isasync, handle):
         # resolve the url and do security checks
         full_url = resolve_url(url, self.tab.url)
         # prevent cross site scripting
@@ -89,7 +96,6 @@ class JSContext:
             return run_load()
         else:
             threading.Thread(target=run_load).start()
-        return out
 
     def setTimeout(self, handle, time):
         def run_callback():
@@ -97,6 +103,12 @@ class JSContext:
             self.tab.task_runner.schedule_task(task)
 
         threading.Timer(time / 1000.0, run_callback).start()
+
+    def requestAnimationFrame(self):
+        self.tab.browser.set_needs_animation_frame(self.tab)
+
+    def now(self):
+        return int(time.time() * 1000)
 
     def dispatch_event(self, event_type, elt):
         handle = self.node_to_handle.get(elt, -1)
