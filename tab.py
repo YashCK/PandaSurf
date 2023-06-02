@@ -6,7 +6,7 @@ import urllib.parse
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from Helper.measure_time import MeasureTime
-from Helper.task import TaskRunner, Task, CommitForRaster
+from Helper.task import TaskRunner, Task, CommitForRaster, SingleThreadedTaskRunner
 from JSContext import JSContext
 from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
@@ -47,7 +47,10 @@ class Tab:
         self.scroll_changed_in_tab = False
         self.needs_render = False
         # start tasks
-        self.task_runner = TaskRunner(self)
+        if browser.single_threaded:
+            self.task_runner = SingleThreadedTaskRunner(self)
+        else:
+            self.task_runner = TaskRunner(self)
         self.task_runner.start_thread()
         self.measure_render = MeasureTime("render")
         # store browser's style sheet

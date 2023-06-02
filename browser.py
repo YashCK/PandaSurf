@@ -35,7 +35,7 @@ class Browser:
                                                                       \
                                                                       "
 
-    def __init__(self):
+    def __init__(self, single_threaded):
         # set up window
         self.window = sdl2.SDL_CreateWindow(b"Browser",
                                             sdl2.SDL_WINDOWPOS_CENTERED, sdl2.SDL_WINDOWPOS_CENTERED,
@@ -60,6 +60,7 @@ class Browser:
         self.bookmarks = []
         self.LAST_SCROLL = False
         # necessary to do redo work
+        self.single_threaded = single_threaded
         self.needs_raster_and_draw = False
         self.animation_timer = None
         self.needs_animation_frame = True
@@ -416,8 +417,9 @@ class Browser:
 
         self.lock.acquire(blocking=True)
         if self.needs_animation_frame and not self.animation_timer:
-            self.animation_timer = threading.Timer(REFRESH_RATE_SEC, callback)
-            self.animation_timer.start()
+            if not self.single_threaded:
+                self.animation_timer = threading.Timer(REFRESH_RATE_SEC, callback)
+                self.animation_timer.start()
         self.lock.release()
 
     def schedule_load(self, url, body=None):
@@ -447,9 +449,10 @@ class Browser:
         self.needs_animation_frame = True
 
     def render(self):
-        tab = self.tabs[self.active_tab]
-        tab.task_runner.run_tasks()
-        tab.run_animation_frame(self.scroll)
+        if self.single_threaded:
+            tab = self.tabs[self.active_tab]
+            tab.task_runner.run_tasks()
+            tab.run_animation_frame(self.scroll)
 
     def clamp_scroll(self, scroll, tab_height, down):
         if down:
@@ -468,7 +471,7 @@ if __name__ == "__main__":
     import sys
 
     sdl2.SDL_Init(sdl2.SDL_INIT_EVENTS)
-    browser = Browser()
+    browser = Browser(True)
     browser.load(sys.argv[1])
     # implement mainloop
     event = sdl2.SDL_Event()
@@ -504,6 +507,14 @@ if __name__ == "__main__":
             elif event.type == sdl2.SDL_WINDOWEVENT:
                 if event.window.event == sdl2.SDL_WINDOWEVENT_RESIZED:
                     browser.handle_configure(event.window.data1, event.window.data2)
+            # in case of single thread
+            active_tab = browser.tabs[browser.active_tab]
+            if browser.single_threaded:
+                if active_tab.task_runner.needs_quit:
+                    break
+                if browser.needs_animation_frame:
+                    browser.needs_animation_frame = False
+                    browser.render()
             # schedule a new rendering task every 16 milliseconds
             browser.raster_and_draw()
             browser.schedule_animation_frame()

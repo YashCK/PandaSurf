@@ -75,3 +75,31 @@ class CommitForRaster:
         self.scroll = scroll
         self.height = height
         self.display_list = display_list
+
+
+class SingleThreadedTaskRunner:
+    def __init__(self, tab):
+        self.tab = tab
+        self.needs_quit = False
+        self.tasks = []
+
+    def schedule_task(self, callback):
+        self.tasks.append(callback)
+
+    def run_tasks(self):
+        while self.tasks:
+            task = self.tasks.pop(0)
+            task.run()
+
+    def clear_pending_tasks(self):
+        self.tasks = []
+
+    def start_thread(self):
+        pass
+
+    def set_needs_quit(self):
+        self.needs_quit = True
+        pass
+
+    def run(self):
+        pass
