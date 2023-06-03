@@ -50,12 +50,12 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 
 <p float="left">
   <img src="Images/New_Wiki_Example_Top.png" width="360" />
-  <img src="Images/Google_Search_Attempt.png" width="360" />
+  <img src="Images/View_Source_2.png" width="360" />
 </p>
 
 <p float="left">
   <img src="Images/View_Source_1.png" width="240" />
-  <img src="Images/View_Source_2.png" width="240" />
+  <img src="Images/Google_Search_Attempt.png" width="240" />
   <img src="Images/Data_Scheme_1.png" width="240" />
 </p>
 
