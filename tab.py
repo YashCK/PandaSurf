@@ -206,12 +206,12 @@ class Tab:
         # which object is closest to the top
         if not objs: return
         elt = objs[-1].node
+        if elt and self.js.dispatch_event("click", elt): return
         # climb html tree to find element
         while elt:
             if isinstance(elt, Text):
                 pass
             elif elt.tag == "a" and "href" in elt.attributes:
-                if self.js.dispatch_event("click", elt): return
                 if elt.attributes["href"].startswith("#"):
                     word_to_find = elt.attributes["href"]
                     self.url = resolve_url(word_to_find, self.url)
@@ -221,7 +221,8 @@ class Tab:
                 else:
                     # extract url and load it
                     url = resolve_url(elt.attributes["href"], self.url)
-                    return self.load(url)
+                    self.load(url)
+                    return
             elif elt.tag == "input":
                 elt.attributes["value"] = ""
                 if elt != self.focus:

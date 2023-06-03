@@ -22,12 +22,9 @@ class TranslateAnimation:
         (self.old_x, self.old_y) = parse_transform(old_value)
         (new_x, new_y) = parse_transform(new_value)
         self.num_frames = num_frames
-
         self.frame_count = 1
-        self.change_per_frame_x = \
-            (new_x - self.old_x) / num_frames
-        self.change_per_frame_y = \
-            (new_y - self.old_y) / num_frames
+        self.change_per_frame_x = (new_x - self.old_x) / num_frames
+        self.change_per_frame_y = (new_y - self.old_y) / num_frames
 
     def animate(self):
         self.frame_count += 1

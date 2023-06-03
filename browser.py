@@ -268,7 +268,7 @@ class Browser:
                 # find which tab was clicked on
                 self.set_active_tab(int((e.x - 40) / 80))
                 tab = self.tabs[self.active_tab]
-                task = Task(tab.set_needs_render)
+                task = Task(active_tab.set_needs_paint)
                 tab.task_runner.schedule_task(task)
             elif 10 <= e.x < 30 and 10 <= e.y < 30:
                 # open new tab
@@ -321,8 +321,6 @@ class Browser:
         # change surfaces
         self.tab_surface = None
         self.scroll_surface = None
-        self.raster_tab()
-        self.raster_chrome()
         self.set_needs_raster()
         self.set_needs_draw()
         self.lock.release()
@@ -376,7 +374,6 @@ class Browser:
     def handle_quit(self):
         print(self.measure_composite_raster_and_draw.text())
         self.tabs[self.active_tab].task_runner.set_needs_quit()
-        sdl2.SDL_DestroyWindow(self.window)
         sdl2.SDL_GL_DeleteContext(self.gl_context)
         sdl2.SDL_DestroyWindow(self.window)
 
@@ -409,6 +406,7 @@ class Browser:
         if self.needs_raster:
             self.raster_chrome()
             self.raster_tab()
+            self.raster_scroll()
         if self.needs_draw:
             self.paint_draw_list()
             self.draw()
@@ -443,7 +441,6 @@ class Browser:
 
     def schedule_load(self, url, body=None):
         current_tab = self.tabs[self.active_tab]
-        current_tab.task_runner.clear_pending_tasks()
         task = Task(current_tab.load, url, body)
         current_tab.task_runner.schedule_task(task)
 
@@ -533,7 +530,7 @@ class Browser:
             # wrap the DrawCompositedLayer in each visual effect that applies to that composited layer
             parent = composited_layer.display_items[0].parent
             while parent:
-                current_effect = parent.clone_latest([current_effect])
+                current_effect = self.clone_latest(parent, [current_effect])
                 parent = parent.parent
             self.draw_list.append(current_effect)
 

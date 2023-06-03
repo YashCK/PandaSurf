@@ -264,7 +264,7 @@ def draw_text(canvas, x, y, text, font, color=None):
 def draw_rect(canvas, l, t, r, b, fill_color=None, border_color="black", width=1):
     paint = skia.Paint()
     if fill_color:
-        paint.setStrokeWidth(width);
+        paint.setStrokeWidth(width)
         paint.setColor(parse_color(fill_color))
     else:
         paint.setStyle(skia.Paint.kStroke_Style)
