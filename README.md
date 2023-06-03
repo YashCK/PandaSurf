@@ -18,7 +18,7 @@
 
 ### Ex: This is how you can use the browser
 #### Note: This Demo is slightly outdated and uses an old UI -> some changes can be seen in the pictures below
-[![PandaSurf Demo](Helper/VideoDisplay.png)](https://www.youtube.com/watch?v=7CqXEiQak7o)
+[![PandaSurf Demo](Images/VideoDisplay.png)](https://www.youtube.com/watch?v=7CqXEiQak7o)
 
 ## Key Features
 
@@ -41,13 +41,26 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 
 ## Updated UI (changes from video)
 
-<img width="1021" alt="Screen Shot 2023-06-03 at 12 42 14 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/e661326e-1b79-4632-961e-0772be159a3d">
+<!-- <img width="1021" alt="Screen Shot 2023-06-03 at 12 42 14 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/e661326e-1b79-4632-961e-0772be159a3d">
 
 <img width="1015" alt="Screen Shot 2023-06-03 at 12 42 24 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/1a662ced-7c0f-4e97-8917-33e3972a36b9">
 
 <img width="1030" alt="Screen Shot 2023-06-03 at 12 42 31 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/00f4b8e9-23b2-4f30-a314-c62f895869b6">
 
-<img width="1023" alt="Screen Shot 2023-06-03 at 12 42 59 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/30ebe00a-a8b2-4c8f-9bb5-003e64161a50">
+<img width="1023" alt="Screen Shot 2023-06-03 at 12 42 59 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/30ebe00a-a8b2-4c8f-9bb5-003e64161a50"> -->
+
+<p float="center">
+  <img src="Images/New_Browser_Home.png" width="500" />
+  <img src="Images/New_Wiki_Example.png" width="500" /> 
+</p>
+
+<p float="left">
+  <img src="Images/New_Wiki_Example_Top.png" width="500" />
+  <img src="Images/Google_Search_Attempt.png" width="500" />
+</p>
+
+
+
 
 ## How it works
 
