@@ -126,6 +126,6 @@ class JSContext:
     def style_set(self, handle, s):
         # support changing an element’s style attribute from JavaScript
         elt = self.handle_to_node[handle]
-        elt.attributes["style"] = s;
+        elt.attributes["style"] = s
         # make sure browser rerenders the page
         self.tab.set_needs_render()

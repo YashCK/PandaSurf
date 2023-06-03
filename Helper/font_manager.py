@@ -13,12 +13,6 @@ def get_font(node, size_delta=0):
     # translate CSS normal to Tk roman
     if style == "normal":
         style = "roman"
-    # manage inherited properties
-    # find_inherited_property(node, "color", "black")
-    # find_inherited_property(node, "font-family", "Didot")
-    # find_inherited_property(node, "font-size", 16)
-    # find_inherited_property(node, "font-style", "roman")
-    # find_inherited_property(node, "font-weight", "normal")
     # convert CSS pixels to Tk points
     size = int(float(node.style["font-size"][:-2]) * .75) + size_delta
     return get_cached_font(family, size, weight, style)

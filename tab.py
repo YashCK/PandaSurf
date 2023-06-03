@@ -2,17 +2,18 @@ import math
 import os
 import urllib.parse
 
+import skia
 
 from CSSParser import CSSParser
 from HTMLParser import HTMLParser
 from Helper.measure_time import MeasureTime
-from Helper.task import TaskRunner, Task, CommitForRaster, SingleThreadedTaskRunner
+from Helper.task import TaskRunner, Task, CommitData, SingleThreadedTaskRunner
 from JSContext import JSContext
 from Layouts.document_layout import DocumentLayout
 from Layouts.input_layout import InputLayout
 from Requests.header import Header
 from Requests.request import resolve_url, RequestHandler, url_origin
-from Helper.draw import DrawLine
+from Helper.draw import DrawLine, absolute_bounds_for_obj
 from Helper.style import style, tree_to_list
 from Helper.tokens import Text, Element
 
@@ -35,6 +36,7 @@ class Tab:
         self.font_delta = 0
         # browser info
         self.scroll = 0
+        self.composited_updates = []
         self.history = []
         self.future = []
         self.bookmarks = bookmarks
@@ -45,7 +47,6 @@ class Tab:
         self.browser = browser
         self.allowed_origins = None
         self.scroll_changed_in_tab = False
-        self.needs_render = False
         self.needs_style = False
         self.needs_layout = False
         self.needs_paint = False
@@ -178,13 +179,12 @@ class Tab:
             # draw cursor if necessary
             if self.focus:
                 obj = [obj for obj in tree_to_list(self.document, [])
-                       if obj.node == self.focus and \
+                       if obj.node == self.focus and
                        isinstance(obj, InputLayout)][0]
                 text = self.focus.attributes.get("value", "")
                 x = obj.x + obj.font.measureText(text)
                 y = obj.y
-                self.display_list.append(
-                    DrawLine(x, y, x, y + obj.height))
+                self.display_list.append(DrawLine(x, y, x, y + obj.height))
             self.needs_paint = False
         self.measure_render.stop_timing()
 
@@ -200,9 +200,9 @@ class Tab:
         # account for scrolling
         y += self.scroll
         # what elements are at the location
+        loc_rect = skia.Rect.MakeXYWH(x, y, 1, 1)
         objs = [obj for obj in tree_to_list(self.document, [])
-                if obj.x <= x < obj.x + obj.width
-                and obj.y <= y < obj.y + obj.height]
+                if absolute_bounds_for_obj(obj).intersects(loc_rect)]
         # which object is closest to the top
         if not objs: return
         elt = objs[-1].node
@@ -319,6 +319,14 @@ class Tab:
         self.needs_style = True
         self.browser.set_needs_animation_frame(self)
 
+    def set_needs_layout(self):
+        self.needs_layout = True
+        self.browser.set_needs_animation_frame(self)
+
+    def set_needs_paint(self):
+        self.needs_paint = True
+        self.browser.set_needs_animation_frame(self)
+
     def run_animation_frame(self, scroll):
         if not self.scroll_changed_in_tab:
             self.scroll = scroll
@@ -336,9 +344,9 @@ class Tab:
                         self.set_needs_layout()
         needs_composite = self.needs_style or self.needs_layout
         self.render()
-        document_height = math.ceil(self.document.height)
         # set scroll_changed_in_tab when loading a new page or when
         # browser thread’s scroll offset is past the bottom of page
+        document_height = math.ceil(self.document.height)
         clamped_scroll = self.clamp_scroll(self.scroll, document_height)
         if clamped_scroll != self.scroll:
             self.scroll_changed_in_tab = True
@@ -347,18 +355,20 @@ class Tab:
         scroll = None
         if self.scroll_changed_in_tab:
             scroll = self.scroll
+        # composited updates
+        composited_updates = {}
+        if not needs_composite:
+            for node in self.composited_updates:
+                composited_updates[node] = node.save_layer
+        self.composited_updates = []
         # commit data
-        commit_data = CommitForRaster(self.url, scroll, document_height, self.display_list)
+        commit_data = CommitData(self.url, scroll, document_height, self.display_list, composited_updates,)
         self.display_list = None
-        self.browser.commit(self, commit_data)
         self.scroll_changed_in_tab = False
+        self.browser.commit(self, commit_data)
 
     def clamp_scroll(self, scroll, tab_height):
         return max(0, min(scroll, tab_height - (self.HEIGHT - self.CHROME_PX)))
-
-    def set_needs_layout(self):
-        self.needs_layout = True
-        self.browser.set_needs_animation_frame(self)
 
 
 def cascade_priority(rule):

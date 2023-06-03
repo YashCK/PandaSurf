@@ -1,5 +1,5 @@
 from CSSParser import CSSParser
-from Helper.animation import NumericAnimation
+from Helper.animation import NumericAnimation, TranslateAnimation
 from Helper.tokens import Element
 
 REFRESH_RATE_SEC = 0.016  # 16ms
@@ -15,6 +15,7 @@ INHERITED_PROPERTIES = {
 }
 ANIMATED_PROPERTIES = {
     "opacity": NumericAnimation,
+    "transform": TranslateAnimation,
 }
 
 
@@ -30,14 +31,18 @@ def style(node, rules, tab):
     # loop over all elements and all rules in order to add the property/value pairs
     # to the element's style information
     for selector, body in rules:
-        if not selector.matches(node): continue
+        if not selector.matches(node):
+            continue
         for prop, value in body.items():
-            node.style[prop] = value
+            computed_value = compute_style(node, prop, value)
+            if not computed_value: continue
+            node.style[prop] = computed_value
     # parse style attribute to fill in the style field
     if isinstance(node, Element) and "style" in node.attributes:
         pairs = CSSParser(node.attributes["style"]).body()
         for prop, value in pairs.items():
-            node.style[prop] = value
+            computed_value = compute_style(node, prop, value)
+            node.style[prop] = computed_value
     # font size
     if node.style["font-size"].endswith("%"):
         if node.parent:

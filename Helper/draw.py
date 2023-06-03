@@ -1,5 +1,7 @@
 import skia
 
+from Helper.animation import parse_transform
+
 
 class DisplayItem:
     def __init__(self, rect, children=[], node=None):
@@ -192,6 +194,28 @@ class DrawCompositedLayer(DisplayItem):
         layer.surface.draw(canvas, bounds.left(), bounds.top())
 
 
+class Transform(DisplayItem):
+    def __init__(self, translation, rect, node, children):
+        super().__init__(rect, children, node)
+        self.translation = translation
+
+    def execute(self, canvas):
+        if self.translation:
+            (x, y) = self.translation
+            canvas.save()
+            canvas.translate(x, y)
+        for cmd in self.children:
+            cmd.execute(canvas)
+        if self.translation:
+            canvas.restore()
+
+    def map(self, rect):
+        return map_translation(rect, self.translation)
+
+    def clone(self, children):
+        return Transform(self.translation, self.rect, self.node, children)
+
+
 def parse_color(color):
     if color == "white":
         return skia.ColorWHITE
@@ -237,15 +261,15 @@ def draw_text(canvas, x, y, text, font, color=None):
         font, paint)
 
 
-def draw_rect(canvas, l, t, r, b, fill=None, width=1):
+def draw_rect(canvas, l, t, r, b, fill_color=None, border_color="black", width=1):
     paint = skia.Paint()
-    if fill:
-        paint.setStrokeWidth(width)
-        paint.setColor(parse_color(fill))
+    if fill_color:
+        paint.setStrokeWidth(width);
+        paint.setColor(parse_color(fill_color))
     else:
         paint.setStyle(skia.Paint.kStroke_Style)
-        paint.setStrokeWidth(1)
-        paint.setColor(skia.ColorBLACK)
+    paint.setStrokeWidth(width)
+    paint.setColor(parse_color(border_color))
     rect = skia.Rect.MakeLTRB(l, t, r, b)
     canvas.drawRect(rect, paint)
 
@@ -261,8 +285,8 @@ def parse_blend_mode(blend_mode_str):
 
 def paint_visual_effects(node, cmds, rect):
     opacity = float(node.style.get("opacity", "1.0"))
-    # blend mode to use
     blend_mode = parse_blend_mode(node.style.get("mix-blend-mode"))
+    translation = parse_transform(node.style.get("transform", ""))
     # create a new layer, draw a mask behind it, and blend with the element contents
     border_radius = float(node.style.get("border-radius", "0px")[:-2])
     if node.style.get("overflow", "visible") == "clip":
@@ -274,11 +298,34 @@ def paint_visual_effects(node, cmds, rect):
     needs_blend_isolation = blend_mode != skia.BlendMode.kSrcOver or needs_clip or opacity != 1.0
     # return surfaces
     # use ClipRRect to get rid of the destination-in blended surface
-    return [
-        SaveLayer(skia.Paint(BlendMode=blend_mode, Alphaf=opacity), [
+    save_layer = \
+        SaveLayer(skia.Paint(BlendMode=blend_mode, Alphaf=opacity), node, [
             ClipRRect(rect, clip_radius, cmds, should_clip=needs_clip),
-        ], should_save=needs_blend_isolation),
-    ]
+        ], should_save=needs_blend_isolation)
+    transform = Transform(translation, rect, node, [save_layer])
+    # record saved layer on the Element
+    node.save_layer = save_layer
+    return [transform]
+
+
+def map_translation(rect, translation):
+    if not translation:
+        return rect
+    else:
+        (x, y) = translation
+        matrix = skia.Matrix()
+        matrix.setTranslate(x, y)
+        return matrix.mapRect(rect)
+
+
+def absolute_bounds_for_obj(obj):
+    rect = skia.Rect.MakeXYWH(
+        obj.x, obj.y, obj.width, obj.height)
+    cur = obj.node
+    while cur:
+        rect = map_translation(rect, parse_transform(cur.style.get("transform", "")))
+        cur = cur.parent
+    return rect
 
 
 def absolute_bounds(display_item):

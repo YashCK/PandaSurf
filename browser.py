@@ -1,13 +1,12 @@
 import ctypes
-import math
 import threading
-import time
 
 import OpenGL.GL
 import sdl2
 import skia
 
-from Helper.draw import draw_line, draw_text, draw_rect, DrawRect, DrawCompositedLayer
+from Helper.draw import draw_line, draw_text, draw_rect, DrawRect, DrawCompositedLayer, SaveLayer, absolute_bounds, \
+    CompositedLayer
 from Helper.measure_time import MeasureTime
 from Helper.style import tree_to_list, add_parent_pointers
 from Helper.task import Task
@@ -47,8 +46,8 @@ class Browser:
                                             sdl2.SDL_WINDOW_SHOWN | sdl2.SDL_WINDOW_OPENGL)
         self.gl_context = sdl2.SDL_GL_CreateContext(self.window)
         print(("OpenGL initialized: vendor={}," + "renderer={}").format(
-                OpenGL.GL.glGetString(OpenGL.GL.GL_VENDOR),
-                OpenGL.GL.glGetString(OpenGL.GL.GL_RENDERER)))
+            OpenGL.GL.glGetString(OpenGL.GL.GL_VENDOR),
+            OpenGL.GL.glGetString(OpenGL.GL.GL_RENDERER)))
         self.skia_context = skia.GrDirectContext.MakeGL()
         # set up surface to draw to
         self.root_surface = \
@@ -67,11 +66,7 @@ class Browser:
             skia.ImageInfo.MakeN32Premul(self.WIDTH, self.CHROME_PX))
         assert self.chrome_surface is not None
         self.tab_surface = None
-        # self.scroll_surface = skia.Surface.MakeRenderTarget(
-        #     self.skia_context, skia.Budgeted.kNo,
-        #     skia.ImageInfo.MakeN32Premul(self.WIDTH, self.HEIGHT - self.CHROME_PX))
-        self.scroll_surface = None
-        # assert self.scroll_surface is not None
+        self.scroll_surface = self.create_scroll_surface()
         # manage tabs
         self.tabs = []
         self.active_tab = None
@@ -84,8 +79,14 @@ class Browser:
         self.needs_raster_and_draw = False
         self.animation_timer = None
         self.needs_animation_frame = True
-        self.measure_composite_raster_and_draw = MeasureTime("composite-raster-and-draw")
+        self.composited_updates = {}
         self.composited_layers = []
+        self.display_list = []
+        self.draw_list = None
+        self.needs_composite = False
+        self.needs_raster = False
+        self.needs_draw = False
+        self.measure_composite_raster_and_draw = MeasureTime("composite-raster-and-draw")
         # information for commit
         self.lock = threading.Lock()
         self.url = None
@@ -131,7 +132,7 @@ class Browser:
         canvas = self.chrome_surface.getCanvas()
         canvas.clear(skia.ColorWHITE)
         # draw chrome elements
-        draw_rect(canvas, 0, 0, self.WIDTH, self.CHROME_PX, fill="white")
+        draw_rect(canvas, 0, 0, self.WIDTH, self.CHROME_PX, fill_color="white")
         button_font = skia.Font(skia.Typeface('Helvetica'), 20)
         self.draw_tabs(canvas, button_font)
         self.draw_address_bar(canvas, button_font)
@@ -153,7 +154,7 @@ class Browser:
         canvas.clipRect(chrome_rect)
         self.chrome_surface.draw(canvas, 0, 0)
         canvas.restore()
-        # # copy from scroll surface to the root surface
+        # copy from scroll surface to the root surface
         scroll_rect = skia.Rect.MakeLTRB(self.WIDTH - self.HSTEP + 6, self.CHROME_PX, self.WIDTH, self.HEIGHT)
         canvas.save()
         canvas.clipRect(scroll_rect)
@@ -225,7 +226,7 @@ class Browser:
         bookmark_color = 'yellow' if self.tabs[self.active_tab].url in self.bookmarks else 'white'
         draw_rect(canvas, self.WIDTH - 35, 50, self.WIDTH - 10, 0.9 * 80)
         draw_rect(canvas, self.WIDTH - 30, 55, self.WIDTH - 15, 0.9 * 80 - 5)
-        draw_rect(canvas, self.WIDTH - 29, 56, self.WIDTH - 15, 0.9 * 80 - 5, fill=bookmark_color)
+        draw_rect(canvas, self.WIDTH - 29, 56, self.WIDTH - 15, 0.9 * 80 - 5, fill_color=bookmark_color)
 
     def draw_scrollbar(self, canvas):
         # max_y = tab.document.height - self.HEIGHT
@@ -244,7 +245,7 @@ class Browser:
             return
         scroll = self.clamp_scroll(self.scroll + self.SCROLL_STEP, self.active_tab_height, True)
         self.scroll = scroll
-        self.set_needs_raster_and_draw()
+        self.set_needs_draw()
         self.needs_animation_frame = True
         self.lock.release()
 
@@ -255,7 +256,7 @@ class Browser:
             return
         scroll = self.clamp_scroll(self.scroll - self.SCROLL_STEP, self.active_tab_height, False)
         self.scroll = scroll
-        self.set_needs_raster_and_draw()
+        self.set_needs_draw()
         self.needs_animation_frame = True
         self.lock.release()
 
@@ -266,22 +267,24 @@ class Browser:
             if 40 + 80 * len(self.tabs) > e.x >= 40 > e.y >= 0:
                 # find which tab was clicked on
                 self.set_active_tab(int((e.x - 40) / 80))
-                active_tab = self.tabs[self.active_tab]
-                task = Task(active_tab.set_needs_render)
-                active_tab.task_runner.schedule_task(task)
+                tab = self.tabs[self.active_tab]
+                task = Task(tab.set_needs_render)
+                tab.task_runner.schedule_task(task)
             elif 10 <= e.x < 30 and 10 <= e.y < 30:
                 # open new tab
                 self.load_internal(self.HOME_PAGE)
             elif 10 <= e.x < 35 and 50 <= e.y < 0.9 * 80:
                 # go back in history
-                active_tab = self.tabs[self.active_tab]
-                task = Task(active_tab.go_back)
-                active_tab.task_runner.schedule_task(task)
+                tab = self.tabs[self.active_tab]
+                task = Task(tab.go_back)
+                tab.task_runner.schedule_task(task)
+                self.clear_data()
             elif 40 <= e.x < 65 and 50 <= e.y < 0.9 * 80:
                 # forward in history
-                active_tab = self.tabs[self.active_tab]
-                task = Task(active_tab.go_forward)
-                active_tab.task_runner.schedule_task(task)
+                tab = self.tabs[self.active_tab]
+                task = Task(tab.go_forward)
+                tab.task_runner.schedule_task(task)
+                self.clear_data()
             elif 40 <= e.x < self.WIDTH - 45 and 50 <= e.y < 0.8 * 90:
                 self.focus = "address bar"
                 self.address_bar = ""
@@ -291,13 +294,13 @@ class Browser:
                     self.bookmarks.remove(url)
                 else:
                     self.bookmarks.append(url)
-            self.set_needs_raster_and_draw()
+            self.set_needs_raster()
         else:
             # clicked on page content
             self.focus = "content"
-            active_tab = self.tabs[self.active_tab]
-            task = Task(active_tab.click, e.x, e.y - self.CHROME_PX)
-            active_tab.task_runner.schedule_task(task)
+            tab = self.tabs[self.active_tab]
+            task = Task(tab.click, e.x, e.y - self.CHROME_PX)
+            tab.task_runner.schedule_task(task)
         self.lock.release()
 
     def handle_mouse_wheel(self, scroll_x, scroll_y):
@@ -307,28 +310,28 @@ class Browser:
         else:
             self.handle_up()
             self.LAST_SCROLL = False
-        self.set_needs_raster_and_draw()
 
     def handle_configure(self, w, h):
         self.lock.acquire(blocking=True)
         self.WIDTH = w
         self.HEIGHT = h
-        active_tab = self.tabs[self.active_tab]
-        task = Task(active_tab.configure)
-        active_tab.task_runner.schedule_task(task)
+        current_tab = self.tabs[self.active_tab]
+        task = Task(current_tab.configure)
+        current_tab.task_runner.schedule_task(task)
         # change surfaces
         self.tab_surface = None
         self.scroll_surface = None
         self.raster_tab()
         self.raster_chrome()
-        self.set_needs_raster_and_draw()
+        self.set_needs_raster()
+        self.set_needs_draw()
         self.lock.release()
 
     def handle_press(self, press):
         self.lock.acquire(blocking=True)
         if press == sdl2.SDLK_BACKSPACE and self.focus == "address bar":
             self.address_bar = self.address_bar[:-1]
-            self.set_needs_raster_and_draw()
+            self.set_needs_raster()
         self.lock.release()
 
     def handle_key(self, char):
@@ -337,20 +340,21 @@ class Browser:
         if not (0x20 <= ord(char) < 0x7f): return
         if self.focus == "address bar":
             self.address_bar += char
-            self.set_needs_raster_and_draw()
+            self.set_needs_raster()
         elif self.focus == "content":
-            active_tab = self.tabs[self.active_tab]
-            task = Task(active_tab.keypress, char)
-            active_tab.task_runner.schedule_task(task)
+            current_tab = self.tabs[self.active_tab]
+            task = Task(current_tab.keypress, char)
+            current_tab.task_runner.schedule_task(task)
         elif char == '-' or char == '+':
             self.change_text_size(char)
         self.lock.release()
 
     def change_text_size(self, char):
-        active_tab = self.tabs[self.active_tab]
-        task = Task(active_tab.key_press_handler, char)
-        active_tab.task_runner.schedule_task(task)
-        self.set_needs_raster_and_draw()
+        current_tab = self.tabs[self.active_tab]
+        task = Task(current_tab.key_press_handler, char)
+        current_tab.task_runner.schedule_task(task)
+        self.set_needs_raster()
+        self.set_needs_draw()
 
     def handle_enter(self):
         self.lock.acquire(blocking=True)
@@ -358,7 +362,8 @@ class Browser:
             self.schedule_load(self.address_bar)
             self.url = self.address_bar
             self.focus = None
-            self.set_needs_raster_and_draw()
+            self.set_needs_raster()
+            self.needs_animation_frame = True
         elif self.focus == "content":
             tab = self.tabs[self.active_tab]
             tab_focus = tab.focus
@@ -382,14 +387,20 @@ class Browser:
         assert surface is not None
         return surface
 
-    def set_needs_raster_and_draw(self):
-        self.needs_raster_and_draw = True
+    def clone_latest(self, visual_effect, current_effect):
+        node = visual_effect.node
+        if node not in self.composited_updates:
+            return visual_effect.clone(current_effect)
+        save_layer = self.composited_updates[node]
+        if type(visual_effect) is SaveLayer:
+            return save_layer.clone(current_effect)
+        return visual_effect.clone(current_effect)
 
     def composite_raster_and_draw(self):
         self.lock.acquire(blocking=True)
         if not self.needs_composite and \
-            len(self.composited_updates) == 0 \
-            and not self.needs_raster and not self.needs_draw:
+                len(self.composited_updates) == 0 \
+                and not self.needs_raster and not self.needs_draw:
             self.lock.release()
             return
         self.measure_composite_raster_and_draw.start_timing()
@@ -417,11 +428,11 @@ class Browser:
         def callback():
             self.lock.acquire(blocking=True)
             scroll = self.scroll
-            active_tab = self.tabs[self.active_tab]
+            current_tab = self.tabs[self.active_tab]
             self.needs_animation_frame = False
             self.lock.release()
-            task = Task(active_tab.run_animation_frame, scroll)
-            active_tab.task_runner.schedule_task(task)
+            task = Task(current_tab.run_animation_frame, scroll)
+            current_tab.task_runner.schedule_task(task)
 
         self.lock.acquire(blocking=True)
         if self.needs_animation_frame and not self.animation_timer:
@@ -431,10 +442,10 @@ class Browser:
         self.lock.release()
 
     def schedule_load(self, url, body=None):
-        active_tab = self.tabs[self.active_tab]
-        active_tab.task_runner.clear_pending_tasks()
-        task = Task(active_tab.load, url, body)
-        active_tab.task_runner.schedule_task(task)
+        current_tab = self.tabs[self.active_tab]
+        current_tab.task_runner.clear_pending_tasks()
+        task = Task(current_tab.load, url, body)
+        current_tab.task_runner.schedule_task(task)
 
     def commit(self, tab, data):
         self.lock.acquire(blocking=True)
@@ -446,14 +457,18 @@ class Browser:
             if data.display_list:
                 self.active_tab_display_list = data.display_list
             self.animation_timer = None
-            self.set_needs_raster_and_draw()
+            self.composited_updates = data.composited_updates
+            if not self.composited_updates:
+                self.composited_updates = {}
+                self.set_needs_composite()
+            else:
+                self.set_needs_draw()
         self.lock.release()
 
     def set_active_tab(self, index):
         # schedule a new animation frame:
         self.active_tab = index
-        self.scroll = 0
-        self.url = None
+        self.clear_data()
         self.needs_animation_frame = True
 
     def render(self):
@@ -468,13 +483,46 @@ class Browser:
         else:
             return max(0, scroll)
 
+    def set_needs_raster(self):
+        self.needs_raster = True
+        self.needs_draw = True
+
+    def set_needs_composite(self):
+        self.needs_composite = True
+        self.needs_raster = True
+        self.needs_draw = True
+
+    def set_needs_draw(self):
+        self.needs_draw = True
+
     def composite(self):
-        add_parent_pointers(self.active_tab_display_list)
         self.composited_layers = []
+        add_parent_pointers(self.active_tab_display_list)
+        # list all the paint_commands
         all_commands = []
         for cmd in self.active_tab_display_list:
             all_commands = tree_to_list(cmd, all_commands)
-        paint_commands = [cmd for cmd in all_commands if cmd.is_paint_command()]
+        non_composited_commands = [cmd for cmd in all_commands
+                                   if not cmd.needs_compositing and
+                                   (not cmd.parent or cmd.parent.needs_compositing)]
+        for cmd in non_composited_commands:
+            did_break = False
+            for layer in reversed(self.composited_layers):
+                if layer.can_merge(cmd):
+                    layer.add(cmd)
+                    did_break = True
+                    break
+                elif skia.Rect.Intersects(layer.absolute_bounds(), absolute_bounds(cmd)):
+                    layer = CompositedLayer(self.skia_context, cmd)
+                    self.composited_layers.append(layer)
+                    did_break = True
+                    break
+            if not did_break:
+                layer = CompositedLayer(self.skia_context, cmd)
+                self.composited_layers.append(layer)
+        self.active_tab_height = 0
+        for layer in self.composited_layers:
+            self.active_tab_height = max(self.active_tab_height, layer.absolute_bounds().bottom())
 
     def paint_draw_list(self):
         self.draw_list = []
@@ -485,9 +533,15 @@ class Browser:
             # wrap the DrawCompositedLayer in each visual effect that applies to that composited layer
             parent = composited_layer.display_items[0].parent
             while parent:
-                current_effect = parent.clone([current_effect])
+                current_effect = parent.clone_latest([current_effect])
                 parent = parent.parent
             self.draw_list.append(current_effect)
+
+    def clear_data(self):
+        self.scroll = 0
+        self.url = None
+        self.display_list = []
+        self.composited_layers = []
 
 
 def raster(display_list, canvas):
@@ -521,8 +575,9 @@ if __name__ == "__main__":
                 elif event.key.keysym.sym == sdl2.SDLK_UP:
                     browser.handle_up()
                 elif event.key.keysym.sym == sdl2.SDLK_BACKSPACE and browser.focus == "address bar":
-                    browser.address_bar = browser.address_bar[:-1]
-                    browser.set_needs_raster_and_draw()
+                    browser.handle_press(event.key.keysym.sym)
+                    # browser.address_bar = browser.address_bar[:-1]
+                    # browser.set_needs_raster()
                 elif event.key.keysym.sym == sdl2.SDLK_MINUS or event.key.keysym.sym == 45:
                     browser.change_text_size('-')
                 elif event.key.keysym.sym == sdl2.SDLK_PLUS or event.key.keysym.sym == 61:
