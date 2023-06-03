@@ -44,13 +44,13 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 #### Note that the blue fields are input fields and the orange are buttons that are part of the page.
 
 <p float="center">
-  <img src="Images/New_Browser_Home.png" width="300" />
-  <img src="Images/New_Wiki_Example.png" width="300" /> 
+  <img src="Images/New_Browser_Home.png" width="350" />
+  <img src="Images/New_Wiki_Example.png" width="350" /> 
 </p>
 
 <p float="left">
-  <img src="Images/New_Wiki_Example_Top.png" width="300" />
-  <img src="Images/Google_Search_Attempt.png" width="300" />
+  <img src="Images/New_Wiki_Example_Top.png" width="350" />
+  <img src="Images/Google_Search_Attempt.png" width="350" />
 </p>
 
 
