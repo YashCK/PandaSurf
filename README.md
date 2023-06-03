@@ -17,6 +17,7 @@
 <!-- Online Diff Eq Notes -->
 
 ### Ex: This is how you can use the browser
+#### Note: This Demo is slightly outdated and uses an old UI -> some changes can be seen in the pictures below
 [![PandaSurf Demo](Helper/VideoDisplay.png)](https://www.youtube.com/watch?v=7CqXEiQak7o)
 
 ## Key Features
@@ -34,6 +35,21 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
   - Stop cross-site XMLHttpRequests with same-origin policy
   - Mitigate cross-site forgery (forms filled from other sites) with nonce values
   - Prevent cross-site scripting with Content-Security-Policy
+- Can submit forms with the use of input fields and buttons
+- Multithreading to improve browser speed
+- Animations \[currently not working :( ]
+
+## Updated UI (changes from video)
+
+<img width="1021" alt="Screen Shot 2023-06-03 at 12 42 14 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/e661326e-1b79-4632-961e-0772be159a3d">
+
+<img width="1015" alt="Screen Shot 2023-06-03 at 12 42 24 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/1a662ced-7c0f-4e97-8917-33e3972a36b9">
+
+<img width="1030" alt="Screen Shot 2023-06-03 at 12 42 31 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/00f4b8e9-23b2-4f30-a314-c62f895869b6">
+
+<img width="1023" alt="Screen Shot 2023-06-03 at 12 42 59 AM" src="https://github.com/YashCK/PandaSurf/assets/43621900/30ebe00a-a8b2-4c8f-9bb5-003e64161a50">
+
+## How it works
 
 * URL Parsing (HTTP / HTTPS) \[https://.....]
   - HTML Parser
@@ -62,6 +78,8 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
     -  Read attribute values from page elements
     -  Modify page elements once events occur (clicking/enter/keypress)
   - Supports Content-Encoding, Transfer-Encoding, Cache-Control, Set-Cookie Headers
+    - Depending on the encoding it employs the right decoding algorithm
+    - Continues reading until all the information is recieved 
   - Addresses URLs which are redirects
   - Caches URLs and fetches/deletes resources depending on if they are fresh 
 
@@ -77,6 +95,8 @@ Supports HTTP, HTTPS, File, Data, and View-Source schemes.
 * View-Source \[view-source:.....]
   - Displays the source of the http/https URL requested with correct formatting
   - Uses Syntax Highlighting to show Text in a Bold Font
+
+* Uses skia and sdl in order to display graphics
 
 ## How To Use
 
